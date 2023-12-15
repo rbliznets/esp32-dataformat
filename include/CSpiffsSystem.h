@@ -28,7 +28,7 @@ public:
 	/// Обработка команды.
 	/*!
 	  \param[in] cmd json объектом spiffs в корне.
-	  \return json строка с ответом (без обрамления в начале и конце {}), либо null.
+	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	static std::string command(CJsonParser *cmd);
 };
