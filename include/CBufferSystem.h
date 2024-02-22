@@ -10,18 +10,16 @@
 
 #include "sdkconfig.h"
 #include "CJsonParser.h"
-#include <list>
 
 #define BUF_PART_SIZE (200)
 
-/// Статические методы для работы с файловой системой.
 class CBufferSystem
 {
 protected:
 	uint8_t *mBuffer = nullptr;
 	uint32_t mSize;
 	uint16_t mPart = BUF_PART_SIZE;
-	std::list<uint16_t>  mParts;
+	uint8_t*  mParts = nullptr;
 	uint16_t mLastPart;
 
 	bool init(uint32_t size);
@@ -40,4 +38,5 @@ public:
 	*/
 	std::string command(CJsonParser *cmd);
 	void addData(uint8_t* data, uint32_t size);
+	uint8_t* getData(uint32_t& size, uint16_t& index);
 };
