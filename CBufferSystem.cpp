@@ -62,6 +62,7 @@ std::string CBufferSystem::command(CJsonParser *cmd)
                 else
                     mPart = BUF_PART_SIZE;
                 mLastPart = mSize / mPart;
+                if(mSize%mPart == 0)mLastPart--;
                 mParts = new uint8_t[mLastPart + 1];
                 std::memset(mParts, 0, mLastPart + 1);
                 answer += "\"ok\":\"Buf was created " + std::to_string(mSize) + "(" + std::to_string(mPart) + ")" + "\"";
@@ -149,6 +150,7 @@ std::string CBufferSystem::command(CJsonParser *cmd)
                     else
                         mPart = BUF_PART_SIZE;
                     mLastPart = mSize / mPart;
+                    if(mSize%mPart == 0)mLastPart--;
                     std::fseek(f, 0, SEEK_SET);
                     size_t sz = std::fread(mBuffer, 1, mSize, f);
                     if (sz == mSize)
