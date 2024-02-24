@@ -62,9 +62,11 @@ std::string CBufferSystem::command(CJsonParser *cmd)
                 else
                     mPart = BUF_PART_SIZE;
                 mLastPart = mSize / mPart;
-                if(mSize%mPart == 0)mLastPart--;
+                if (mSize % mPart == 0)
+                    mLastPart--;
                 mParts = new uint8_t[mLastPart + 1];
                 std::memset(mParts, 0, mLastPart + 1);
+                mRead = false;
                 answer += "\"ok\":\"Buf was created " + std::to_string(mSize) + "(" + std::to_string(mPart) + ")" + "\"";
             }
             else
@@ -150,7 +152,8 @@ std::string CBufferSystem::command(CJsonParser *cmd)
                     else
                         mPart = BUF_PART_SIZE;
                     mLastPart = mSize / mPart;
-                    if(mSize%mPart == 0)mLastPart--;
+                    if (mSize % mPart == 0)
+                        mLastPart--;
                     std::fseek(f, 0, SEEK_SET);
                     size_t sz = std::fread(mBuffer, 1, mSize, f);
                     if (sz == mSize)
@@ -159,6 +162,7 @@ std::string CBufferSystem::command(CJsonParser *cmd)
                         std::memset(mParts, 1, mLastPart + 1);
                         answer += "\"ok\":\"buffer was loaded from " + fname + "\"";
                         answer += ",\"size\":" + std::to_string(mSize) + ",\"part\":" + std::to_string(mPart);
+                        mRead = true;
                     }
                     else
                     {
@@ -232,7 +236,7 @@ void CBufferSystem::addData(uint8_t *data, uint32_t size)
 uint8_t *CBufferSystem::getData(uint32_t &size, uint16_t &index)
 {
     uint8_t *res = nullptr;
-    if (mParts != nullptr)
+    if (mRead && (mParts != nullptr))
     {
         for (int i = 0; i <= mLastPart; i++)
         {

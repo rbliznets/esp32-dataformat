@@ -21,6 +21,7 @@ protected:
 	uint16_t mPart = BUF_PART_SIZE;
 	uint8_t*  mParts = nullptr;
 	uint16_t mLastPart;
+	bool mRead = false;
 
 	bool init(uint32_t size);
 	void free();
