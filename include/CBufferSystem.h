@@ -37,7 +37,7 @@ public:
 	  \param[in] cmd json объектом spiffs в корне.
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
-	std::string command(CJsonParser *cmd);
+	std::string command(CJsonParser *cmd, bool& cancel);
 	void addData(uint8_t* data, uint32_t size);
 	uint8_t* getData(uint32_t& size, uint16_t& index);
 };

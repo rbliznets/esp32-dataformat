@@ -43,11 +43,12 @@ void CBufferSystem::free()
     }
 }
 
-std::string CBufferSystem::command(CJsonParser *cmd)
+std::string CBufferSystem::command(CJsonParser *cmd, bool& cancel)
 {
     std::string answer = "";
     int t2;
     int x;
+    cancel = false;
     if (cmd->getObject(1, "buf", t2))
     {
         std::string fname;
@@ -187,6 +188,19 @@ std::string CBufferSystem::command(CJsonParser *cmd)
             {
                 free();
                 answer += "\"ok\":\"buffer was deleted\"";
+            }
+        }
+        else if (cmd->getField(t2, "cancel"))
+        {
+            if (mBuffer == nullptr)
+            {
+                answer += "\"error\":\"Buf wasn't created\"";
+            }
+            else
+            {
+                free();
+                answer += "\"ok\":\"buffer was deleted\"";
+                cancel = true;
             }
         }
         answer += '}';
