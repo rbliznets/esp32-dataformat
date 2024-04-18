@@ -1,9 +1,9 @@
 /*!
-\file
-\brief Класс для обнаружения json строки из потока байтов.
-\authors Близнец Р.А. (r.bliznets@gmail.com)
-\version 0.0.0.1
-\date 18.04.2022
+    \file
+    \brief Класс для обнаружения json строки из потока байтов.
+    \authors Близнец Р.А. (r.bliznets@gmail.com)
+    \version 0.1.0.0
+    \date 18.04.2022
 */
 
 #include "CJsonReadStream.h"
@@ -30,7 +30,7 @@ void CJsonReadStream::free()
     mCount = 0;
 }
 
-uint16_t CJsonReadStream::add(uint8_t *data, uint16_t size)
+bool CJsonReadStream::add(uint8_t *data, uint16_t size)
 {
     int start = -1;
     int i;
@@ -138,7 +138,7 @@ uint16_t CJsonReadStream::add(uint8_t *data, uint16_t size)
             mBuf = nullptr;
         }
     }
-    return mStrings.size();
+    return (mCount != 0);
 }
 
 bool CJsonReadStream::get(std::string &str)
