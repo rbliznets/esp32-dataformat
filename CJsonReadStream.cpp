@@ -80,7 +80,7 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                     {
                         if ((i + mBufIndex) <= mSize)
                         {
-                            std::memcpy(&mBuf[mBufIndex], &data[start], i + 1);
+                            std::memcpy(&mBuf[mBufIndex], data, i + 1);
                             mBufIndex += i + 1;
                             mBuf[mBufIndex] = 0;
                             // ESP_LOGI(TAG," %s",(char*)mBuf);
