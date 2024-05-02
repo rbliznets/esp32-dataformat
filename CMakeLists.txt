@@ -1,6 +1,6 @@
-idf_component_register(SRCS "CSpiffsSystem.cpp" 
+idf_component_register(SRCS "CNvsSystem.cpp" "CSpiffsSystem.cpp" 
                     "CJsonParser.cpp"
                     "CBufferSystem.cpp"
                     "CJsonReadStream.cpp"
                     INCLUDE_DIRS "include"
-                    REQUIRES jsmn spiffs)
+                    REQUIRES jsmn spiffs nvs_flash)
