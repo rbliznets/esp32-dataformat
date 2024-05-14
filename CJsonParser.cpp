@@ -17,7 +17,7 @@
 #include "sdkconfig.h"
 #include "esp_log.h"
 
-static const char* TAG="CJsonParser";
+static const char *TAG = "CJsonParser";
 
 CJsonParser::CJsonParser() : mRootTokensSize(CONFIG_JSON_MIN_TOKEN_SIZE)
 {
@@ -235,14 +235,22 @@ bool CJsonParser::getArrayInt(int beg, const char *name, int *&data, int &size)
 		{
 			if ((sz == (mRootTokens[i].end - mRootTokens[i].start)) && (std::memcmp(name, &mJson[mRootTokens[i].start], sz) == 0))
 			{
-				if ((mRootTokens[i + 1].type == JSMN_ARRAY) && (mRootTokens[i + 1].parent == i) && (mRootTokens[i + 1].size > 0))
+				if ((mRootTokens[i + 1].type == JSMN_ARRAY) && (mRootTokens[i + 1].parent == i))
 				{
-					size = mRootTokens[i + 1].size;
-					data = new int[size];
-					for (int j = 0; j < size; j++)
+					if (mRootTokens[i + 1].size > 0)
 					{
-						std::string str = mJson.substr(mRootTokens[j + i + 2].start, mRootTokens[j + i + 2].end - mRootTokens[j + i + 2].start);
-						data[j] = std::atoi((const char *)str.c_str());
+						size = mRootTokens[i + 1].size;
+						data = new int[size];
+						for (int j = 0; j < size; j++)
+						{
+							std::string str = mJson.substr(mRootTokens[j + i + 2].start, mRootTokens[j + i + 2].end - mRootTokens[j + i + 2].start);
+							data[j] = std::atoi((const char *)str.c_str());
+						}
+					}
+					else
+					{
+						size = 0;
+						data = nullptr;
 					}
 					return true;
 				}
