@@ -168,6 +168,30 @@ bool CJsonParser::getInt(int beg, const char *name, int &value)
 	return false;
 }
 
+bool CJsonParser::getUlong(int beg, const char *name, unsigned long &value)
+{
+    if (mJson.empty())
+        return false;
+
+    int sz = std::strlen(name);
+    for (int i = beg; (i < (mRootSize - 1)) && (mRootTokens[beg].parent <= mRootTokens[i].parent); i++)
+    {
+        if (mRootTokens[beg].parent == mRootTokens[i].parent)
+        {
+            if ((sz == (mRootTokens[i].end - mRootTokens[i].start)) && (std::memcmp(name, &mJson[mRootTokens[i].start], sz) == 0))
+            {
+                if ((mRootTokens[i + 1].type == JSMN_PRIMITIVE) && (mRootTokens[i + 1].parent == i))
+                {
+                    std::string str = mJson.substr(mRootTokens[i + 1].start, mRootTokens[i + 1].end - mRootTokens[i + 1].start);
+                    value = std::stoul (str, nullptr, 0);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 bool CJsonParser::getFloat(int beg, const char *name, float &value)
 {
 	if (mJson.empty())

@@ -72,6 +72,14 @@ public:
 	  \return true в случае успеха
 	*/
 	bool getInt(int beg, const char *name, int &value);
+    /// Получить поле unsigned int.
+    /*!
+      \param[in] beg индекс первого токена объекта.
+      \param[in] name название поля.
+      \param[out] value значение поля.
+      \return true в случае успеха
+    */
+    bool getUlong(int beg, const char *name, unsigned long &value);
 	/// Получить поле float.
 	/*!
 	  \param[in] beg индекс первого токена объекта.
