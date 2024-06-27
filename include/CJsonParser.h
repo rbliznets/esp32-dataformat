@@ -88,6 +88,14 @@ public:
 	  \return true в случае успеха
 	*/
 	bool getFloat(int beg, const char *name, float &value);
+	/// Получить поле double.
+	/*!
+	  \param[in] beg индекс первого токена объекта.
+	  \param[in] name название поля.
+	  \param[out] value значение поля.
+	  \return true в случае успеха
+	*/
+	bool getDouble(int beg, const char *name, double &value);
 	/// Получить логическое поле.
 	/*!
 	  \param[in] beg индекс первого токена объекта.
