@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для работы с NVS.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 0.1.0.0
+	\version 1.0.0.0
 	\date 02.05.2024
 */
 

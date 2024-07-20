@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с SPIFFS.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 0.1.0.0
+    \version 1.1.0.0
     \date 12.12.2023
 */
 
@@ -11,7 +11,9 @@
 #include "esp_log.h"
 #include <cstdio>
 #include <dirent.h>
+#include <string.h>
 #include <stdexcept>
+#include <map>
 
 static const char *TAG = "spiffs";
 
@@ -121,37 +123,60 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
     {
         std::string fname;
         std::string fname2;
-        if (cmd->getField(t2, "ls"))
+        if (cmd->getString(t2, "ls", fname))
         {
             answer = "\"spiffs\":{";
+            answer += "\"root\":\"" + fname + "\"";
+            fname2 = "/spiffs";
+            if (fname != "")
+                fname2 += "/" + fname;
             struct dirent *entry;
             DIR *dp;
-            dp = opendir("/spiffs");
+            std::map<std::string, uint32_t> dirs;
+            dp = opendir(fname2.c_str());
             if (dp == nullptr)
             {
-                ESP_LOGE(TAG, "Failed to open dir /spiffs");
-                answer += "\"error\":\"Failed to open dir /spiffs\"";
+                ESP_LOGE(TAG, "Failed to open dir %s", fname2.c_str());
+                answer += ",\"error\":\"Failed to open dir " + fname2 + "\"";
             }
             else
             {
-                std::string str = "/spiffs/";
-                answer += "\"files\":[";
+                fname2 += "/";
+                answer += ",\"files\":[";
                 bool point = false;
                 while ((entry = readdir(dp)))
                 {
-                    FILE *f = std::fopen((str + entry->d_name).c_str(), "r");
-                    int32_t sz = -1;
-                    if (f != nullptr)
+                    char *result;
+                    if ((result = std::strchr(entry->d_name, '/')) == nullptr)
                     {
-                        std::fseek(f, 0, SEEK_END);
-                        sz = std::ftell(f);
-                        std::fclose(f);
+                        FILE *f = std::fopen((fname2 + entry->d_name).c_str(), "r");
+                        int32_t sz = -1;
+                        if (f != nullptr)
+                        {
+                            std::fseek(f, 0, SEEK_END);
+                            sz = std::ftell(f);
+                            std::fclose(f);
+                        }
+                        if (point)
+                            answer += ',';
+                        else
+                            point = true;
+                        answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + "}";
                     }
-                    if (point)
-                        answer += ',';
                     else
-                        point = true;
-                    answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + "}";
+                    {
+                        *result = 0;
+                        fname = entry->d_name;
+                        if (!dirs.contains(fname))
+                        {
+                            dirs[fname] = 0;
+                            if (point)
+                                answer += ',';
+                            else
+                                point = true;
+                            answer = answer + "{\"name\":\"" + fname + "\"}";
+                        }
+                    }
                 }
                 closedir(dp);
                 answer += ']';

@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для работы с буфером PSRAM.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 0.0.0.1
+	\version 1.0.0.0
 	\date 21.02.2024
 */
 

@@ -2,7 +2,7 @@
     \file
     \brief Класс для обнаружения json строки из потока байтов.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 0.1.0.0
+    \version 1.0.0.0
     \date 18.04.2022
 */
 
