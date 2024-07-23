@@ -17,6 +17,8 @@
 
 static const char *TAG = "spiffs";
 
+SemaphoreHandle_t CSpiffsSystem::mMutex = nullptr;
+
 void CSpiffsSystem::init(bool check)
 {
     esp_vfs_spiffs_conf_t conf = {
@@ -42,6 +44,7 @@ void CSpiffsSystem::init(bool check)
         return;
     }
 
+    CSpiffsSystem::mMutex = xSemaphoreCreateBinary();
     check |= endTransaction();
     if (check)
     {
@@ -76,6 +79,7 @@ void CSpiffsSystem::init(bool check)
 
 void CSpiffsSystem::free()
 {
+    vSemaphoreDelete(CSpiffsSystem::mMutex);
     esp_vfs_spiffs_unregister(nullptr);
 }
 

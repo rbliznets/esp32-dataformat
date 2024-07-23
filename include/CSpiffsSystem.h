@@ -11,9 +11,14 @@
 #include "sdkconfig.h"
 #include "CJsonParser.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 /// Статические методы для работы с файловой системой.
 class CSpiffsSystem
 {
+protected:
+	static SemaphoreHandle_t mMutex; ///< Семафор захвата файловой системы
 public:
 	/// Инициализация файловой системы.
 	/*!
@@ -24,6 +29,20 @@ public:
 	static void free();
 	/// Проверка на незавершенные транзакции и их очистка.
 	static bool endTransaction();
+
+	/// @brief Захват файловой системы задачей
+	/// @param delay Время таймаута
+	/// @return true - если захват успешен, false - если не удалось захватить.
+	static bool lock(TickType_t delay = portMAX_DELAY)
+	{
+		return (xSemaphoreTake(mMutex, delay) == pdTRUE);
+	};
+
+	/// @brief Освобождения захвата файловой системы задачей
+	static void unlock()
+	{
+		xSemaphoreGive(mMutex);
+	};
 
 	/// Обработка команды.
 	/*!
