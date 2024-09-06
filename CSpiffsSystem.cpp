@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с SPIFFS.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 1.1.0.0
+    \version 1.1.1.0
     \date 12.12.2023
 */
 
@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdexcept>
 #include <map>
+#include <sys\stat.h>
 
 static const char *TAG = "spiffs";
 
@@ -122,6 +123,8 @@ bool CSpiffsSystem::endTransaction()
 std::string CSpiffsSystem::command(CJsonParser *cmd)
 {
     std::string answer = "";
+    char tmp[32];
+
     int t2;
     if (cmd->getObject(1, "spiffs", t2))
     {
@@ -153,19 +156,23 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     char *result;
                     if ((result = std::strchr(entry->d_name, '/')) == nullptr)
                     {
-                        FILE *f = std::fopen((fname2 + entry->d_name).c_str(), "r");
+                        struct stat buf;
+                        int result = stat((fname2 + entry->d_name).c_str(), &buf);
                         int32_t sz = -1;
-                        if (f != nullptr)
+                        if(result == 0)
                         {
-                            std::fseek(f, 0, SEEK_END);
-                            sz = std::ftell(f);
-                            std::fclose(f);
+                            sz = buf.st_size;
                         }
                         if (point)
                             answer += ',';
                         else
                             point = true;
+#if (CONFIG_SPIFFS_USE_MTIME == 1)
+                        strftime(tmp,32,"%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
+                        answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + ",\"modify\":\""+ tmp +"\"}";
+#else
                         answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + "}";
+#endif
                     }
                     else
                     {
@@ -209,7 +216,6 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                 std::fseek(f, offset, SEEK_SET);
                 size = std::fread(data, 1, size, f);
                 std::fclose(f);
-                char tmp[3];
                 for (size_t i = 0; i < size; i++)
                 {
                     std::sprintf(tmp, "%02x", data[i]);
