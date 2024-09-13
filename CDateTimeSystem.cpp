@@ -65,14 +65,14 @@ std::string CDateTimeSystem::command(CJsonParser *cmd)
 	{
 		int x;
 		bool force = false;
-		if (cmd->getInt(t, "epoch",x))
+		if (cmd->getInt(t, "epoch", x))
 		{
-			cmd->getBool(t, "force",force);
-			force = setDateTime((time_t)x,force);
+			cmd->getBool(t, "force", force);
+			force = setDateTime((time_t)x, force);
 		}
-		else if(cmd->getBool(t, "force",force))
+		else if (cmd->getBool(t, "force", force))
 		{
-			if(force)
+			if (force)
 			{
 				force = saveDateTime();
 			}
@@ -83,25 +83,27 @@ std::string CDateTimeSystem::command(CJsonParser *cmd)
 			return answer;
 		}
 
-		if(force)
+		if (force)
 			answer = "\"sync\":{\"result\":true,\"epoch\":";
 		else
 			answer = "\"sync\":{\"result\":false,\"epoch\":";
 		timeval tv_start;
 		gettimeofday(&tv_start, nullptr);
-		answer += std::to_string(tv_start.tv_sec)+"}";
+		answer += std::to_string(tv_start.tv_sec);
+		if (!mSync)
+			answer += ",\"sync\":false";
+		answer += "}";
 	}
 	return answer;
 }
 
 void CDateTimeSystem::log()
 {
-    timeval tv_start;
-    gettimeofday(&tv_start, nullptr);
-    time_t nowtime = tv_start.tv_sec;
-    tm* t=localtime(&nowtime);
-    char tmbuf[64];
-    strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", t);
-    ESP_LOGI("DateTimeSystem", "time %s (sync:%d)", tmbuf, mSync);
+	timeval tv_start;
+	gettimeofday(&tv_start, nullptr);
+	time_t nowtime = tv_start.tv_sec;
+	tm *t = localtime(&nowtime);
+	char tmbuf[64];
+	strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", t);
+	ESP_LOGI("DateTimeSystem", "time %s (sync:%d)", tmbuf, mSync);
 }
-
