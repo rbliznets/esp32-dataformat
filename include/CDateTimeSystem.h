@@ -27,12 +27,20 @@ public:
 	/// @return true если установлено, иначе false
 	static bool setDateTime(time_t now, bool force = false);
 
+	/// @brief Записать текущее время в NVS
+	/// @return true если записано, иначе false
+	static bool saveDateTime();
+
 	/// Обработка команды.
 	/*!
 	  \param[in] cmd json объектом nvs в корне.
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	static std::string command(CJsonParser *cmd);
+
+	/// @brief Флаг синхронизации
+	/// @return Флаг синхронизации
+	static inline bool isSync() { return mSync; }
 
 	/// @brief вывод текущей даты
 	static void log();

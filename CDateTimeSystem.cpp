@@ -23,7 +23,6 @@ void CDateTimeSystem::init()
 		nvs_get_i64(nvs_handle, "timestamp", &now);
 		nvs_close(nvs_handle);
 	}
-	// time(&now);
 	timeval t = {.tv_sec = now};
 	settimeofday(&t, nullptr);
 	mSync = false;
@@ -37,18 +36,25 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force)
 	settimeofday(&t, nullptr);
 	mSync = true;
 
+	saveDateTime();
+	return true;
+}
 
-
+bool CDateTimeSystem::saveDateTime()
+{
 	nvs_handle_t nvs_handle;
 	if (nvs_open("nvs", NVS_READWRITE, &nvs_handle) == ESP_OK)
 	{
-		if (nvs_set_i64(nvs_handle, "timestamp", now) == ESP_OK)
+		timeval tv_start;
+		gettimeofday(&tv_start, nullptr);
+		if (nvs_set_i64(nvs_handle, "timestamp", tv_start.tv_sec) == ESP_OK)
 		{
 			nvs_commit(nvs_handle);
+			return true;
 		}
 		nvs_close(nvs_handle);
 	}
-	return true;
+	return false;
 }
 
 std::string CDateTimeSystem::command(CJsonParser *cmd)
@@ -58,19 +64,32 @@ std::string CDateTimeSystem::command(CJsonParser *cmd)
 	if (cmd->getObject(1, "sync", t))
 	{
 		int x;
+		bool force = false;
 		if (cmd->getInt(t, "epoch",x))
 		{
-			bool force = false;
 			cmd->getBool(t, "force",force);
-			if(setDateTime((time_t)x,force))
-				answer = "\"sync\":{\"result\":true}";
-			else
-				answer = "\"sync\":{\"result\":false}";
+			force = setDateTime((time_t)x,force);
+		}
+		else if(cmd->getBool(t, "force",force))
+		{
+			if(force)
+			{
+				force = saveDateTime();
+			}
 		}
 		else
 		{
-			answer = "\"sync\":{\"error\":\"epoch\"}";
+			answer = "\"sync\":{\"error\":\"wrong param\"}";
+			return answer;
 		}
+
+		if(force)
+			answer = "\"sync\":{\"result\":true,\"epoch\":";
+		else
+			answer = "\"sync\":{\"result\":false,\"epoch\":";
+		timeval tv_start;
+		gettimeofday(&tv_start, nullptr);
+		answer += std::to_string(tv_start.tv_sec)+"}";
 	}
 	return answer;
 }
@@ -78,7 +97,7 @@ std::string CDateTimeSystem::command(CJsonParser *cmd)
 void CDateTimeSystem::log()
 {
     timeval tv_start;
-    gettimeofday(&tv_start, NULL);
+    gettimeofday(&tv_start, nullptr);
     time_t nowtime = tv_start.tv_sec;
     tm* t=localtime(&nowtime);
     char tmbuf[64];
