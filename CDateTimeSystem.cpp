@@ -34,14 +34,14 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force)
 		return false;
 	timeval t = {.tv_sec = now};
 	settimeofday(&t, nullptr);
-	mSync = true;
-
+	
 	saveDateTime();
 	return true;
 }
 
 bool CDateTimeSystem::saveDateTime()
 {
+	mSync = true;
 	nvs_handle_t nvs_handle;
 	if (nvs_open("nvs", NVS_READWRITE, &nvs_handle) == ESP_OK)
 	{
