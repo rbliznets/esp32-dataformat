@@ -7,4 +7,11 @@ menu "Data Format"
         help
 			Default JSON minimum depth
 
+    config DATAFORMAT_BUFFERS_INPSRAM
+        depends on SPIRAM
+        bool "Set buffers in SPIRAM."
+        default n
+        help
+            Set buffers in SPIRAM, if low DRAM. 
+        
 endmenu

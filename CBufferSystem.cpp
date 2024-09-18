@@ -15,8 +15,8 @@ static const char *TAG = "buf";
 bool CBufferSystem::init(uint32_t size)
 {
     free();
-#ifdef CONFIG_SPIRAM
-    mBuffer = (uint8_t *)heap_caps_malloc(size, MALLOC_CAP_DEFAULT);
+#ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
+    mBuffer = (uint8_t *)heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
 #else
     mBuffer = (uint8_t *)heap_caps_malloc(size, MALLOC_CAP_DEFAULT);
 #endif

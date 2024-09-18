@@ -135,6 +135,10 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             answer = "\"spiffs\":{";
             answer += "\"root\":\"" + fname + "\"";
             fname2 = "/spiffs";
+            int offset = 0;
+            int count = -1;
+            cmd->getInt(t2, "offset", offset);
+            cmd->getInt(t2, "count", count);
             if (fname != "")
                 fname2 += "/" + fname;
             struct dirent *entry;
@@ -156,23 +160,31 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     char *result;
                     if ((result = std::strchr(entry->d_name, '/')) == nullptr)
                     {
-                        struct stat buf;
-                        int result = stat((fname2 + entry->d_name).c_str(), &buf);
-                        int32_t sz = -1;
-                        if(result == 0)
+                        offset--;
+                        if (offset < 0)
                         {
-                            sz = buf.st_size;
-                        }
-                        if (point)
-                            answer += ',';
-                        else
-                            point = true;
+                            if (count != 0)
+                            {
+                                count--;
+                                struct stat buf;
+                                int result = stat((fname2 + entry->d_name).c_str(), &buf);
+                                int32_t sz = -1;
+                                if (result == 0)
+                                {
+                                    sz = buf.st_size;
+                                }
+                                if (point)
+                                    answer += ',';
+                                else
+                                    point = true;
 #if (CONFIG_SPIFFS_USE_MTIME == 1)
-                        strftime(tmp,32,"%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
-                        answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + ",\"modify\":\""+ tmp +"\"}";
+                                strftime(tmp, 32, "%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
+                                answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + ",\"modify\":\"" + tmp + "\"}";
 #else
-                        answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + "}";
+                                answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + "}";
 #endif
+                            }
+                        }
                     }
                     else
                     {

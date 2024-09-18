@@ -8,6 +8,8 @@
 
 #include "CJsonReadStream.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+
 static const char *TAG = "buf";
 
 CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free) : mSize(max_size), mFree(auto_free)
@@ -24,7 +26,7 @@ void CJsonReadStream::free()
 {
     if (mBuf != nullptr)
     {
-        delete[] mBuf;
+        heap_caps_free(mBuf);
         mBuf = nullptr;
     }
     mCount = 0;
@@ -57,7 +59,11 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                 {
                     if (mBuf == nullptr)
                     {
-                        mBuf = new uint8_t[mSize + 1];
+#ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
+                        mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_SPIRAM);
+#else
+                        mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_DEFAULT);
+#endif
                         mBufIndex = 0;
                     }
                     if (start != -1)
@@ -104,7 +110,11 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
         {
             if (mBuf == nullptr)
             {
-                mBuf = new uint8_t[mSize + 1];
+#ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
+                mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_SPIRAM);
+#else
+                mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_DEFAULT);
+#endif
                 mBufIndex = 0;
             }
             if ((size - start) <= mSize)
@@ -134,7 +144,7 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
     {
         if (mFree && (mBuf != nullptr))
         {
-            delete[] mBuf;
+            heap_caps_free(mBuf);
             mBuf = nullptr;
         }
     }
