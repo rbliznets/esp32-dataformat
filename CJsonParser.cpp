@@ -273,6 +273,8 @@ bool CJsonParser::getBool(int beg, const char *name, bool &value)
 
 bool CJsonParser::getArrayInt(int beg, const char *name, int *&data, int &size)
 {
+	data = nullptr;
+	size = 0;
 	if (mJson.empty())
 		return false;
 
