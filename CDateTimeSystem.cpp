@@ -23,7 +23,7 @@ void CDateTimeSystem::init()
 		nvs_get_i64(nvs_handle, "timestamp", &now);
 		nvs_close(nvs_handle);
 	}
-	timeval t = {.tv_sec = now};
+	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
 	mSync = false;
 }
@@ -32,7 +32,7 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force)
 {
 	if (!force && mSync)
 		return false;
-	timeval t = {.tv_sec = now};
+	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
 	
 	saveDateTime();
