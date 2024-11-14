@@ -274,41 +274,30 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             else
             {
                 int offset = 0;
+                std::vector<uint8_t> *data;
                 cmd->getInt(t2, "offset", offset);
                 if (offset != std::ftell(f))
                 {
                     ESP_LOGW(TAG, "Wrong offset of file %s(%d)", fname.c_str(), offset);
                     answer += "\"error\":\"Wrong offset of file " + fname + "\"";
                 }
-                else if (cmd->getString(t2, "data", str))
+                else if (cmd->getBytes(t2, "data", data))
                 {
-                    int size = str.size() / 2;
-                    uint8_t *data = new uint8_t[size];
-                    try
+                    if (std::fwrite(data->data(), 1, data->size(), f) != data->size())
                     {
-                        for (size_t i = 0; i < size; i++)
-                        {
-                            fname2 = str.substr(i * 2, 2);
-                            data[i] = std::stoi(fname2, 0, 16);
-                        }
-                        if (std::fwrite(data, 1, size, f) != size)
-                        {
-                            ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), size);
-                            answer += "\"error\":\"Failed to write to file " + fname + "\"";
-                        }
-                        else
-                        {
-                            answer += "\"fw\":\"" + fname + "\",";
-                            answer += "\"offset\":" + std::to_string(offset) + ",\"size\":" + std::to_string(size);
-                        }
+                        ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), data->size());
+                        answer += "\"error\":\"Failed to write to file " + fname + "\"";
                     }
-                    catch (std::invalid_argument const &ex)
+                    else
                     {
-                        ESP_LOGW(TAG, "Failed to write to file %s(convert data)", fname.c_str());
-                        answer += "\"error\":\"Failed to write to file  " + fname + "(convert data)\"";
+                        answer += "\"fw\":\"" + fname + "\",";
+                        answer += "\"offset\":" + std::to_string(offset) + ",\"size\":" + std::to_string(data->size());
                     }
-
                     delete[] data;
+                }
+                else
+                {
+                    answer += "\"error\":\"No data to write for " + fname + "\"";
                 }
                 std::fclose(f);
             }

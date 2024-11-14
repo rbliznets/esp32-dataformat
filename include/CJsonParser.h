@@ -2,20 +2,20 @@
 	\file
 	\brief Класс для разбора json строк.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.0.0.0
+	\version 1.1.0.0
 	\date 28.10.2021
 
 	Декоратор для https://github.com/zserge/jsmn
 */
 
-#if !defined CJSONPARSER_H
-#define CJSONPARSER_H
+#pragma once
 
 #define JSMN_HEADER
 #include "jsmn.h"
 
 #include <string>
 #include <cstring>
+#include <vector>
 
 /// Класс для разбора json строки.
 /*!
@@ -118,12 +118,42 @@ public:
 	  \param[in] beg индекс первого токена объекта.
 	  \param[in] name название поля.
 	  \param[out] data данные.
-	  \param[out] size размер данных.
 	  \return true в случае успеха
 
-	  После использования уничтожить данные delete[] data.
+	  После использования уничтожить данные delete data.
 	*/
-	bool getArrayInt(int beg, const char *name, int *&data, int &size);
-};
+	bool getArrayInt(int beg, const char *name, std::vector<int> *&data);
 
-#endif // CJSONPARSER_H
+	/// Получить массив uint8_t из hex строки.
+	/*!
+	  \param[in] beg индекс первого токена объекта.
+	  \param[in] name название поля.
+	  \param[out] data данные.
+	  \return true в случае успеха
+
+	  После использования уничтожить данные delete data.
+	*/
+	bool getBytes(int beg, const char *name, std::vector<uint8_t> *&data);
+	
+	/// Получить массив байтовых массивов.
+	/*!
+	  \param[in] beg индекс первого токена объекта.
+	  \param[in] name название поля.
+	  \param[out] data данные.
+	  \return true в случае успеха
+
+	  После использования уничтожить данные delete data.
+	*/
+	bool getArrayBytes(int beg, const char *name, std::vector<std::vector<uint8_t>*> *&data);
+	
+	/// Получить массив объектов.
+	/*!
+	  \param[in] beg индекс первого токена объекта.
+	  \param[in] name название поля.
+	  \param[out] data массив токенов на объекты.
+	  \return true в случае успеха
+
+	  После использования уничтожить данные delete data.
+	*/
+	bool getArrayObject(int beg, const char *name, std::vector<int> *&data);
+};

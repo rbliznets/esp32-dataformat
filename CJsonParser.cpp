@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для разбора json строк.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.0.0.0
+	\version 1.1.0.0
 	\date 28.10.2021
 
 	Декоратор для https://github.com/zserge/jsmn
@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include "sdkconfig.h"
 #include "esp_log.h"
+#include <stdexcept>
 
 static const char *TAG = "CJsonParser";
 
@@ -170,26 +171,26 @@ bool CJsonParser::getInt(int beg, const char *name, int &value)
 
 bool CJsonParser::getUlong(int beg, const char *name, unsigned long &value)
 {
-    if (mJson.empty())
-        return false;
+	if (mJson.empty())
+		return false;
 
-    int sz = std::strlen(name);
-    for (int i = beg; (i < (mRootSize - 1)) && (mRootTokens[beg].parent <= mRootTokens[i].parent); i++)
-    {
-        if (mRootTokens[beg].parent == mRootTokens[i].parent)
-        {
-            if ((sz == (mRootTokens[i].end - mRootTokens[i].start)) && (std::memcmp(name, &mJson[mRootTokens[i].start], sz) == 0))
-            {
-                if ((mRootTokens[i + 1].type == JSMN_PRIMITIVE) && (mRootTokens[i + 1].parent == i))
-                {
-                    std::string str = mJson.substr(mRootTokens[i + 1].start, mRootTokens[i + 1].end - mRootTokens[i + 1].start);
-                    value = std::stoul (str, nullptr, 0);
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+	int sz = std::strlen(name);
+	for (int i = beg; (i < (mRootSize - 1)) && (mRootTokens[beg].parent <= mRootTokens[i].parent); i++)
+	{
+		if (mRootTokens[beg].parent == mRootTokens[i].parent)
+		{
+			if ((sz == (mRootTokens[i].end - mRootTokens[i].start)) && (std::memcmp(name, &mJson[mRootTokens[i].start], sz) == 0))
+			{
+				if ((mRootTokens[i + 1].type == JSMN_PRIMITIVE) && (mRootTokens[i + 1].parent == i))
+				{
+					std::string str = mJson.substr(mRootTokens[i + 1].start, mRootTokens[i + 1].end - mRootTokens[i + 1].start);
+					value = std::stoul(str, nullptr, 0);
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 bool CJsonParser::getFloat(int beg, const char *name, float &value)
@@ -271,10 +272,9 @@ bool CJsonParser::getBool(int beg, const char *name, bool &value)
 	return false;
 }
 
-bool CJsonParser::getArrayInt(int beg, const char *name, int *&data, int &size)
+bool CJsonParser::getArrayInt(int beg, const char *name, std::vector<int> *&data)
 {
 	data = nullptr;
-	size = 0;
 	if (mJson.empty())
 		return false;
 
@@ -289,20 +289,156 @@ bool CJsonParser::getArrayInt(int beg, const char *name, int *&data, int &size)
 				{
 					if (mRootTokens[i + 1].size > 0)
 					{
-						size = mRootTokens[i + 1].size;
-						data = new int[size];
-						for (int j = 0; j < size; j++)
+						data = new std::vector<int>(mRootTokens[i + 1].size);
+						data->clear();
+						for (int j = 0; j < data->capacity(); j++)
 						{
 							std::string str = mJson.substr(mRootTokens[j + i + 2].start, mRootTokens[j + i + 2].end - mRootTokens[j + i + 2].start);
-							data[j] = std::atoi((const char *)str.c_str());
+							data->push_back(std::atoi((const char *)str.c_str()));
 						}
 					}
-					else
-					{
-						size = 0;
-						data = nullptr;
-					}
 					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+bool CJsonParser::getBytes(int beg, const char *name, std::vector<uint8_t> *&data)
+{
+	data = nullptr;
+	if (mJson.empty())
+		return false;
+
+	std::string str;
+	if (getString(beg, name, str))
+	{
+		std::string tmp;
+		data = new std::vector<uint8_t>(str.size() / 2);
+		data->clear();
+		try
+		{
+			for (size_t i = 0; i < data->capacity(); i++)
+			{
+				tmp = str.substr(i * 2, 2);
+				data->push_back(std::stoi(tmp, 0, 16));
+			}
+			return true;
+		}
+		catch (std::invalid_argument const &ex)
+		{
+			delete[] data;
+			data = nullptr;
+			ESP_LOGW(TAG, "getBytes failed %s", tmp.c_str());
+			return false;
+		}
+	}
+	else
+		return false;
+}
+
+bool CJsonParser::getArrayBytes(int beg, const char *name, std::vector<std::vector<uint8_t> *> *&data)
+{
+	data = nullptr;
+	if (mJson.empty())
+		return false;
+
+	int sz = std::strlen(name);
+	for (int i = beg; (i < (mRootSize - 1)) && (mRootTokens[beg].parent <= mRootTokens[i].parent); i++)
+	{
+		if (mRootTokens[beg].parent == mRootTokens[i].parent)
+		{
+			if ((sz == (mRootTokens[i].end - mRootTokens[i].start)) && (std::memcmp(name, &mJson[mRootTokens[i].start], sz) == 0))
+			{
+				if ((mRootTokens[i + 1].type == JSMN_ARRAY) && (mRootTokens[i + 1].parent == i))
+				{
+					if (mRootTokens[i + 1].size > 0)
+					{
+						std::string tmp;
+						data = new std::vector<std::vector<uint8_t> *>(mRootTokens[i + 1].size);
+						data->clear();
+						for (int j = 0; j < data->capacity(); j++)
+						{
+							std::string str = mJson.substr(mRootTokens[j + i + 2].start, mRootTokens[j + i + 2].end - mRootTokens[j + i + 2].start);
+							data->push_back(new std::vector<uint8_t>(str.size() / 2));
+							data->back()->clear();
+							try
+							{
+								for (size_t i = 0; i < data->back()->capacity(); i++)
+								{
+									tmp = str.substr(i * 2, 2);
+									data->back()->push_back(std::stoi(tmp, 0, 16));
+								}
+							}
+							catch (std::invalid_argument const &ex)
+							{
+								for (auto &x : *data)
+									delete x;
+								delete data;
+								data = nullptr;
+								ESP_LOGW(TAG, "getArrayBytes failed %s", tmp.c_str());
+								return false;
+							}
+						}
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+bool CJsonParser::getArrayObject(int beg, const char *name, std::vector<int> *&data)
+{
+	data = nullptr;
+	if (mJson.empty())
+		return false;
+
+	int sz = std::strlen(name);
+	for (int i = beg; (i < (mRootSize - 1)) && (mRootTokens[beg].parent <= mRootTokens[i].parent); i++)
+	{
+		if (mRootTokens[beg].parent == mRootTokens[i].parent)
+		{
+			if ((sz == (mRootTokens[i].end - mRootTokens[i].start)) && (std::memcmp(name, &mJson[mRootTokens[i].start], sz) == 0))
+			{
+				if ((mRootTokens[i + 1].type == JSMN_ARRAY) && (mRootTokens[i + 1].parent == i))
+				{
+					int parent = i + 1;
+					// ESP_LOGI(TAG, "sz=%d,%d", mRootTokens[parent].size, parent);
+					if (mRootTokens[parent].size > 0)
+					{
+						data = new std::vector<int>(mRootTokens[parent].size);
+						data->clear();
+						i = parent + 1;
+						sz = 0;
+						while ((i < (mRootSize - 1)) && (sz < mRootTokens[parent].size))
+						{
+							// ESP_LOGW(TAG, "%d,%d,%d,%d", i, mRootTokens[i].type, mRootTokens[i].parent, mRootTokens[i].size);
+							if ((mRootTokens[i].type == JSMN_OBJECT) && (mRootTokens[i].parent == parent) && (mRootTokens[i].size > 0))
+							{
+								// ESP_LOGI(TAG, "obj=%d", i);
+								data->push_back(i+1);
+								sz++;
+								i+=2;
+							}
+							else
+								i++;
+						}
+						if (sz == mRootTokens[parent].size)
+						{
+							return true;
+						}
+						else
+						{
+							// ESP_LOGE(TAG, "size=%d,%d", data->size(),data->capacity());
+							delete data;
+							data = nullptr;
+							return false;
+						}
+					}
+					return false;
 				}
 			}
 		}
