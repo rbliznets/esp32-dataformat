@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <map>
 #include <sys\stat.h>
+#include "esp_task_wdt.h"
 
 static const char *TAG = "spiffs";
 
@@ -49,6 +50,11 @@ void CSpiffsSystem::init(bool check)
     check |= endTransaction();
     if (check)
     {
+#ifdef CONFIG_BOOTLOADER_WDT_ENABLE
+#ifndef CONFIG_BOOTLOADER_WDT_DISABLE_IN_USER_CODE
+        ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
+#endif
+#endif
         ESP_LOGI(TAG, "SPIFFS checking...");
         ret = esp_spiffs_check(conf.partition_label);
         if (ret != ESP_OK)
@@ -68,6 +74,11 @@ void CSpiffsSystem::init(bool check)
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
     if (ret != ESP_OK)
     {
+#ifdef CONFIG_BOOTLOADER_WDT_ENABLE
+#ifndef CONFIG_BOOTLOADER_WDT_DISABLE_IN_USER_CODE
+        ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
+#endif
+#endif
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
         esp_spiffs_format(conf.partition_label);
         return;
