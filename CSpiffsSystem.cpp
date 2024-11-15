@@ -50,10 +50,8 @@ void CSpiffsSystem::init(bool check)
     check |= endTransaction();
     if (check)
     {
-#ifdef CONFIG_BOOTLOADER_WDT_ENABLE
-#ifndef CONFIG_BOOTLOADER_WDT_DISABLE_IN_USER_CODE
+#ifdef CONFIG_ESP_TASK_WDT_INIT
         ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
-#endif
 #endif
         ESP_LOGI(TAG, "SPIFFS checking...");
         ret = esp_spiffs_check(conf.partition_label);
@@ -74,10 +72,8 @@ void CSpiffsSystem::init(bool check)
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
     if (ret != ESP_OK)
     {
-#ifdef CONFIG_BOOTLOADER_WDT_ENABLE
-#ifndef CONFIG_BOOTLOADER_WDT_DISABLE_IN_USER_CODE
+#ifdef CONFIG_ESP_TASK_WDT_INIT
         ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
-#endif
 #endif
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
         esp_spiffs_format(conf.partition_label);
