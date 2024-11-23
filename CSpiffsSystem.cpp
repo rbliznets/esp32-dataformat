@@ -21,7 +21,7 @@ static const char *TAG = "spiffs";
 
 SemaphoreHandle_t CSpiffsSystem::mMutex = nullptr;
 
-void CSpiffsSystem::init(bool check)
+bool CSpiffsSystem::init(bool check)
 {
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
@@ -43,7 +43,7 @@ void CSpiffsSystem::init(bool check)
         {
             ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
         }
-        return;
+        return false;
     }
 
     CSpiffsSystem::mMutex = xSemaphoreCreateBinary();
@@ -58,7 +58,7 @@ void CSpiffsSystem::init(bool check)
         if (ret != ESP_OK)
         {
             ESP_LOGE(TAG, "SPIFFS_check() failed (%s)", esp_err_to_name(ret));
-            return;
+            return false;
         }
         else
         {
@@ -76,13 +76,14 @@ void CSpiffsSystem::init(bool check)
         ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
 #endif
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
-        esp_spiffs_format(conf.partition_label);
-        return;
+        ret = esp_spiffs_format(conf.partition_label);
+        return (ret == ESP_OK);
     }
     else
     {
         ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     }
+    return true;
 }
 
 void CSpiffsSystem::free()

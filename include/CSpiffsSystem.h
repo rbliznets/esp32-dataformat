@@ -20,11 +20,10 @@ class CSpiffsSystem
 protected:
 	static SemaphoreHandle_t mMutex; ///< Семафор захвата файловой системы
 public:
-	/// Инициализация файловой системы.
-	/*!
-	  \param[in] check флаг проверки на ошибки.
-	*/
-	static void init(bool check = false);
+	/// @brief Инициализация файловой системы.
+	/// @param check флаг проверки на ошибки.
+	/// @return true - если успех.
+	static bool init(bool check = false);
 	/// Закрытие файловой системы.
 	static void free();
 	/// Проверка на незавершенные транзакции и их очистка.
