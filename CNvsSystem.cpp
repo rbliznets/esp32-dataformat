@@ -13,28 +13,29 @@
 #include "nvs.h"
 #include "esp_system.h"
 
-// static const char *TAG = "nvs";
+static const char *TAG = "nvs";
 
 void CNvsSystem::init()
 {
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(err);
+	esp_err_t err = nvs_flash_init();
+	if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+	{
+		ESP_LOGW(TAG, "nvs_flash_erase (%d)", err);
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		err = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(err);
 }
 
 void CNvsSystem::free()
 {
-    nvs_flash_deinit();
+	nvs_flash_deinit();
 }
 
 std::string CNvsSystem::command(CJsonParser *cmd)
 {
-    std::string answer = "";
-    int t;
+	std::string answer = "";
+	int t;
 	if (cmd->getObject(1, "nvs", t))
 	{
 		nvs_handle_t nvs_handle;
@@ -61,7 +62,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				cmd->getString(t, "type", tp);
 				if (tp == "u8")
 				{
-				    uint8_t u8;
+					uint8_t u8;
 					if (cmd->getInt(t, "value", value))
 					{
 						if (nvs_set_u8(nvs_handle, name.c_str(), (uint8_t)value) == ESP_OK)
@@ -80,7 +81,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				}
 				else if (tp == "i8")
 				{
-				    int8_t i8;
+					int8_t i8;
 					if (cmd->getInt(t, "value", value))
 					{
 						if (nvs_set_i8(nvs_handle, name.c_str(), (int8_t)value) == ESP_OK)
@@ -99,7 +100,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				}
 				else if (tp == "i16")
 				{
-				    int16_t i16;
+					int16_t i16;
 					if (cmd->getInt(t, "value", value))
 					{
 						if (nvs_set_i16(nvs_handle, name.c_str(), (int16_t)value) == ESP_OK)
@@ -118,7 +119,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				}
 				else if (tp == "i32")
 				{
-				    int32_t i32;
+					int32_t i32;
 					if (cmd->getInt(t, "value", value))
 					{
 						if (nvs_set_i32(nvs_handle, name.c_str(), (int32_t)value) == ESP_OK)
@@ -137,7 +138,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				}
 				else if (tp == "u32")
 				{
-				    uint32_t u32;
+					uint32_t u32;
 					if (cmd->getInt(t, "value", value))
 					{
 						if (nvs_set_u32(nvs_handle, name.c_str(), (uint32_t)value) == ESP_OK)
@@ -156,7 +157,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				}
 				else if (tp == "double")
 				{
-				    double d;
+					double d;
 					uint64_t d64;
 					if (cmd->getDouble(t, "value", d))
 					{
@@ -178,7 +179,7 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 				}
 				else
 				{
-				    uint16_t u16;
+					uint16_t u16;
 					if (cmd->getInt(t, "value", value))
 					{
 						if (nvs_set_u16(nvs_handle, name.c_str(), (uint16_t)value) == ESP_OK)
@@ -200,5 +201,5 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 			nvs_close(nvs_handle);
 		}
 	}
-    return answer;
+	return answer;
 }
