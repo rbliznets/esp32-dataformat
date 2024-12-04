@@ -155,6 +155,28 @@ std::string CNvsSystem::command(CJsonParser *cmd)
 						}
 					}
 				}
+				else if (tp == "float")
+				{
+					float d;
+					uint32_t u32;
+					if (cmd->getFloat(t, "value", d))
+					{
+						std::memcpy(&u32, &d, sizeof(d));
+						if (nvs_set_u32(nvs_handle, name.c_str(), u32) == ESP_OK)
+						{
+							answer += ",\"value\":" + std::to_string(d);
+						}
+						ESP_ERROR_CHECK(nvs_commit(nvs_handle));
+					}
+					else
+					{
+						if (nvs_get_u32(nvs_handle, name.c_str(), &u32) == ESP_OK)
+						{
+							std::memcpy(&d, &u32, sizeof(d));
+							answer += ",\"value\":" + std::to_string(d);
+						}
+					}
+				}
 				else if (tp == "double")
 				{
 					double d;
