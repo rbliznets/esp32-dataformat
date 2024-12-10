@@ -301,7 +301,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                         answer += "\"fw\":\"" + fname + "\",";
                         answer += "\"offset\":" + std::to_string(offset) + ",\"size\":" + std::to_string(data->size());
                     }
-                    delete[] data;
+                    delete data;
                 }
                 else
                 {
