@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с SPIFFS.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 1.1.1.0
+    \version 1.2.0.0
     \date 12.12.2023
 */
 
@@ -106,24 +106,79 @@ bool CSpiffsSystem::endTransaction()
     else
     {
         std::string str = "/spiffs/";
-        while ((entry = readdir(dp)))
+        FILE *f = std::fopen("/spiffs/$", "r");
+        if (f == nullptr)
         {
-            std::string fname = entry->d_name;
-            if (fname[fname.length() - 1] == '$')
+            while ((entry = readdir(dp)))
             {
-                res = true;
-                std::remove((str + fname).c_str());
-                ESP_LOGW(TAG, "Delete %s", fname.c_str());
+                std::string fname = entry->d_name;
+                if (fname[fname.length() - 1] == '$')
+                {
+                    res = true;
+                    std::remove((str + fname).c_str());
+                    // ESP_LOGW(TAG, "Delete %s", fname.c_str());
+                }
+                else if (fname[fname.length() - 1] == '!')
+                {
+                    res = true;
+                    std::remove((str + fname.substr(0, fname.length() - 1)).c_str());
+                    std::rename((str + fname).c_str(), (str + fname.substr(0, fname.length() - 1)).c_str());
+                    // ESP_LOGW(TAG, "Rename %s", fname.c_str());
+                }
             }
-            else if (fname[fname.length() - 1] == '!')
+            closedir(dp);
+        }
+        else
+        {
+            std::fclose(f);
+            f = std::fopen("/spiffs/!", "r");
+            if (f != nullptr)
             {
+                std::fclose(f);
+                while ((entry = readdir(dp)))
+                {
+                    std::string fname = entry->d_name;
+                    if ((fname.length() > 1) && ((fname[fname.length() - 1] == '$') || (fname[fname.length() - 1] == '!')))
+                    {
+                        std::remove((str + fname).c_str());
+                        // ESP_LOGW(TAG, "Delete %s", fname.c_str());
+                    }
+                }
+                closedir(dp);
+                std::remove("/spiffs/!");
+                std::remove("/spiffs/$");
                 res = true;
-                std::remove((str + fname.substr(0, fname.length() - 1)).c_str());
-                std::rename((str + fname).c_str(), (str + fname.substr(0, fname.length() - 1)).c_str());
-                ESP_LOGW(TAG, "Rename %s", fname.c_str());
+            }
+            else
+            {
+                f = std::fopen("/spiffs/!", "w");
+                std::fclose(f);
+                while ((entry = readdir(dp)))
+                {
+                    std::string fname = entry->d_name;
+                    if ((fname.length() > 1) && (fname[fname.length() - 1] == '$'))
+                    {
+                        std::string fname2 = fname;
+                        fname2[fname2.length() - 1] = '!';
+                        if (std::rename(fname.c_str(), fname2.c_str()) != 0)
+                        {
+                            ESP_LOGE(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
+                            res = true;
+                            break;
+                        }
+                    }
+                }
+                closedir(dp);
+                if (res)
+                    endTransaction();
+                else
+                {
+                    std::remove("/spiffs/!");
+                    std::remove("/spiffs/$");
+                    res=endTransaction();
+                }
             }
         }
-        closedir(dp);
     }
     return res;
 }
@@ -252,6 +307,27 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             std::string str = "/spiffs/" + fname;
             std::remove(str.c_str());
             answer += "\"fd\":\"" + fname + "\"}";
+        }
+        else if (cmd->getString(t2, "trans", fname))
+        {
+            answer = "\"spiffs\":{";
+            if (fname == "end")
+            {
+                FILE *f = std::fopen("/spiffs/$", "w");
+                std::fclose(f);
+                endTransaction();
+                answer += "\"trans\":\"end\"";
+            }
+            else if (fname == "cancel")
+            {
+                endTransaction();
+                answer += "\"trans\":\"cancel\"";
+            }
+            else
+            {
+                answer += "\"error\":\"Wrong transaction command: " + fname + "\"";
+            }
+            answer += '}';
         }
         else if ((cmd->getString(t2, "old", fname)) && (cmd->getString(t2, "new", fname2)))
         {
