@@ -13,5 +13,11 @@ menu "Data Format"
         default n
         help
             Set buffers in SPIRAM, if low DRAM. 
-        
+
+    config DATAFORMAT_DEFAULT_DATA_SIZE
+        int "Set default data size for SPIFFS."
+        default 256
+        help
+            Default data size for field "text" (for "data" divided 2). 
+                
 endmenu

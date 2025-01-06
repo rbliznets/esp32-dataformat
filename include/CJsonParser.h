@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для разбора json строк.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.1.0.0
+	\version 1.2.0.0
 	\date 28.10.2021
 
 	Декоратор для https://github.com/zserge/jsmn
@@ -64,6 +64,14 @@ public:
 	  \return true в случае успеха
 	*/
 	bool getString(int beg, const char *name, std::string &value);
+
+	/// Модифицировать строку.
+	/*!
+	  \param[in|out] value строка.
+	  Добавляет символ \ перед "
+	*/
+	static void updateString(std::string &value);
+
 	/// Получить поле int.
 	/*!
 	  \param[in] beg индекс первого токена объекта.

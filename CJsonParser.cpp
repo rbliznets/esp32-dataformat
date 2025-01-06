@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для разбора json строк.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.1.0.0
+	\version 1.2.0.0
 	\date 28.10.2021
 
 	Декоратор для https://github.com/zserge/jsmn
@@ -89,12 +89,27 @@ bool CJsonParser::getString(int beg, const char *name, std::string &value)
 				if ((mRootTokens[i + 1].type == JSMN_STRING) && (mRootTokens[i + 1].parent == i))
 				{
 					value = mJson.substr(mRootTokens[i + 1].start, (mRootTokens[i + 1].end - mRootTokens[i + 1].start));
+					int index;
+					while ((index = value.rfind("\\\"")) >= 0)
+					{
+						value.erase(index, 1);
+					}
 					return true;
 				}
 			}
 		}
 	}
 	return false;
+}
+
+void CJsonParser::updateString(std::string &value)
+{
+	int index = 0;
+	while ((index = value.find("\"", index)) >= 0)
+	{
+		value.insert(index, "\\");
+		index += 2;
+	}
 }
 
 bool CJsonParser::getField(int beg, const char *name)
@@ -419,9 +434,9 @@ bool CJsonParser::getArrayObject(int beg, const char *name, std::vector<int> *&d
 							if ((mRootTokens[i].type == JSMN_OBJECT) && (mRootTokens[i].parent == parent) && (mRootTokens[i].size > 0))
 							{
 								// ESP_LOGI(TAG, "obj=%d", i);
-								data->push_back(i+1);
+								data->push_back(i + 1);
 								sz++;
-								i+=2;
+								i += 2;
 							}
 							else
 								i++;

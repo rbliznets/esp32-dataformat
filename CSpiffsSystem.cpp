@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с SPIFFS.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 1.2.0.0
+    \version 1.3.0.0
     \date 12.12.2023
 */
 
@@ -175,7 +175,7 @@ bool CSpiffsSystem::endTransaction()
                 {
                     std::remove("/spiffs/!");
                     std::remove("/spiffs/$");
-                    res=endTransaction();
+                    res = endTransaction();
                 }
             }
         }
@@ -284,8 +284,12 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                 answer += "\"fr\":\"" + fname + "\",";
                 int offset = 0;
                 cmd->getInt(t2, "offset", offset);
-                answer += "\"offset\":" + std::to_string(offset) + ",\"data\":\"";
-                int size = 96;
+                if (offset != 0)
+                {
+                    answer += "\"offset\":" + std::to_string(offset) + ",";
+                }
+                answer += "\"data\":\"";
+                int size = CONFIG_DATAFORMAT_DEFAULT_DATA_SIZE / 2;
                 cmd->getInt(t2, "size", size);
                 uint8_t *data = new uint8_t[size];
                 std::fseek(f, offset, SEEK_SET);
@@ -375,7 +379,11 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     else
                     {
                         answer += "\"fw\":\"" + fname + "\",";
-                        answer += "\"offset\":" + std::to_string(offset) + ",\"size\":" + std::to_string(data->size());
+                        if (offset != 0)
+                        {
+                            answer += "\"offset\":" + std::to_string(offset) + ",";
+                        }
+                        answer += "\"size\":" + std::to_string(data->size());
                     }
                     delete data;
                 }
@@ -384,6 +392,92 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     answer += "\"error\":\"No data to write for " + fname + "\"";
                 }
                 std::fclose(f);
+            }
+            answer += '}';
+        }
+        else if (cmd->getString(t2, "ct", fname) && (cmd->getString(t2, "text", fname2)))
+        {
+            answer = "\"spiffs\":{";
+            std::string str = "/spiffs/" + fname;
+            FILE *f = std::fopen(str.c_str(), "w");
+            if (f == nullptr)
+            {
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer += "\"error\":\"Failed to open file " + fname + "\"";
+            }
+            else
+            {
+                if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
+                {
+                    ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
+                    answer += "\"error\":\"Failed to write to file " + fname + "\"";
+                }
+                else
+                {
+                    answer += "\"tc\":\"" + fname + "\",";
+                    answer += "\"size\":" + std::to_string(std::ftell(f));
+                }
+                std::fclose(f);
+            }
+            answer += '}';
+        }
+        else if (cmd->getString(t2, "at", fname) && (cmd->getString(t2, "text", fname2)))
+        {
+            answer = "\"spiffs\":{";
+            std::string str = "/spiffs/" + fname;
+            FILE *f = std::fopen(str.c_str(), "a");
+            if (f == nullptr)
+            {
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer += "\"error\":\"Failed to open file " + fname + "\"";
+            }
+            else
+            {
+                if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
+                {
+                    ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
+                    answer += "\"error\":\"Failed to write to file " + fname + "\"";
+                }
+                else
+                {
+                    answer += "\"ta\":\"" + fname + "\",";
+                    answer += "\"size\":" + std::to_string(std::ftell(f));
+                }
+                std::fclose(f);
+            }
+            answer += '}';
+        }
+        else if (cmd->getString(t2, "rt", fname))
+        {
+            answer = "\"spiffs\":{";
+            std::string str = "/spiffs/" + fname;
+            FILE *f = std::fopen(str.c_str(), "r");
+            if (f == nullptr)
+            {
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer += "\"error\":\"Failed to open file " + fname + "\"";
+            }
+            else
+            {
+                answer += "\"tr\":\"" + fname + "\",";
+                int offset = 0;
+                cmd->getInt(t2, "offset", offset);
+                if (offset != 0)
+                {
+                    answer += "\"offset\":" + std::to_string(offset) + ",";
+                }
+                answer += "\"text\":\"";
+                int size = CONFIG_DATAFORMAT_DEFAULT_DATA_SIZE;
+                cmd->getInt(t2, "size", size);
+                uint8_t *data = new uint8_t[size + 1];
+                std::fseek(f, offset, SEEK_SET);
+                size = std::fread(data, 1, size, f);
+                std::fclose(f);
+                data[size] = 0;
+                std::string str((const char *)data);
+                CJsonParser::updateString(str);
+                answer += str + "\"";
+                delete[] data;
             }
             answer += '}';
         }

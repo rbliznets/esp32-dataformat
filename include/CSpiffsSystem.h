@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для работы с SPIFFS.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.2.0.0
+	\version 1.3.0.0
 	\date 12.12.2023
 */
 
