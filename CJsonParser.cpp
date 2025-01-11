@@ -32,10 +32,15 @@ CJsonParser::~CJsonParser()
 
 int CJsonParser::parse(const char *json)
 {
+	return parse((uint8_t *)json, std::strlen(json));
+}
+
+int CJsonParser::parse(uint8_t *data, size_t size)
+{
 	jsmn_init(&mParser);
 	mJson.clear();
 
-	mRootSize = jsmn_parse(&mParser, (const char *)json, std::strlen(json), mRootTokens, mRootTokensSize);
+	mRootSize = jsmn_parse(&mParser, (const char *)data, size, mRootTokens, mRootTokensSize);
 	if (mRootSize < 0)
 	{
 		if (mRootSize == JSMN_ERROR_INVAL)
@@ -51,10 +56,10 @@ int CJsonParser::parse(const char *json)
 		else if (mRootSize == JSMN_ERROR_NOMEM)
 		{
 			delete[] mRootTokens;
-			mRootTokensSize = jsmn_parse(&mParser, (const char *)json, std::strlen(json), nullptr, 0) + 1;
+			mRootTokensSize = jsmn_parse(&mParser, (const char *)data, size, nullptr, 0) + 1;
 			mRootTokens = new jsmntok_t[mRootTokensSize];
 			jsmn_init(&mParser);
-			mRootSize = jsmn_parse(&mParser, (const char *)json, std::strlen(json), mRootTokens, mRootTokensSize);
+			mRootSize = jsmn_parse(&mParser, (const char *)data, size, mRootTokens, mRootTokensSize);
 		}
 		else
 		{
@@ -64,7 +69,7 @@ int CJsonParser::parse(const char *json)
 	}
 	if ((mRootSize > 1) && (mRootTokens[0].type == JSMN_OBJECT))
 	{
-		mJson = json;
+		mJson = std::string((const char *)data, size);
 		return 1;
 	}
 	else

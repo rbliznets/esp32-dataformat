@@ -43,11 +43,19 @@ public:
 	  \return 1 (индекс первого токена) в случае успеха, иначе ошибка
 	*/
 	int parse(const char *json);
-	/// Строка Json.
+	/// Парсинг.
 	/*!
-	  \return Строка Json
+	  \param[in] data Парсируемая строка.
+	  \param[in] size Длина строка.
+	  \return 1 (индекс первого токена) в случае успеха, иначе ошибка
 	*/
-	inline const char *getJson() { return mJson.c_str(); };
+    int parse(uint8_t* data, size_t size);
+
+    /// Строка Json.
+    /*!
+      \return Строка Json
+    */
+    inline const char *getJson() { return mJson.c_str(); };
 
 	/// Получить поле null.
 	/*!
