@@ -16,7 +16,7 @@
 class CDateTimeSystem
 {
 protected:
-	static bool mSync;///< Флаг синхронизации
+	static bool mSync; ///< Флаг синхронизации
 public:
 	/// Инициализация
 	static void init();

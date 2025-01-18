@@ -16,6 +16,8 @@ bool CDateTimeSystem::mSync = false;
 
 void CDateTimeSystem::init()
 {
+	if (mSync)
+		return;
 	nvs_handle_t nvs_handle;
 	time_t now = 1726208190;
 	if (nvs_open("nvs", NVS_READONLY, &nvs_handle) == ESP_OK)
@@ -23,9 +25,12 @@ void CDateTimeSystem::init()
 		nvs_get_i64(nvs_handle, "timestamp", &now);
 		nvs_close(nvs_handle);
 	}
+	else
+	{
+		ESP_LOGE("DateTimeSystem", "Failed to open NVS");
+	}
 	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
-	mSync = false;
 }
 
 bool CDateTimeSystem::setDateTime(time_t now, bool force)
@@ -34,7 +39,6 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force)
 		return false;
 	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
-	
 	saveDateTime();
 	return true;
 }
@@ -65,6 +69,7 @@ std::string CDateTimeSystem::command(CJsonParser *cmd)
 	{
 		int x;
 		bool force = false;
+		cmd->getBool(t, "force", force);
 		if (cmd->getInt(t, "epoch", x))
 		{
 			cmd->getBool(t, "force", force);
@@ -105,5 +110,5 @@ void CDateTimeSystem::log()
 	tm *t = localtime(&nowtime);
 	char tmbuf[64];
 	strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", t);
-	ESP_LOGI("DateTimeSystem", "time %s (sync:%d)", tmbuf, mSync);
+	ESP_LOGI("DateTimeSystem", "Time: %s (Sync: %s)", tmbuf, mSync ? "true" : "false");
 }
