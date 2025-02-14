@@ -172,4 +172,6 @@ public:
 	  После использования уничтожить данные delete data.
 	*/
 	bool getArrayObject(int beg, const char *name, std::vector<int> *&data);
+
+	inline void clear(){mJson.clear();};
 };
