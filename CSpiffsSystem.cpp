@@ -66,7 +66,7 @@ bool CSpiffsSystem::init(bool check)
         }
     }
 
-    esp_spiffs_gc(conf.partition_label, 0x100000);
+    esp_spiffs_gc(conf.partition_label, 250000);
 
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
