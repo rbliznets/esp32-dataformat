@@ -4,6 +4,8 @@
     \authors Близнец Р.А. (r.bliznets@gmail.com)
     \version 1.3.0.0
     \date 12.12.2023
+    \details Реализация методов для работы с файловой системой SPIFFS на ESP32.
+             Включает функции инициализации, управления файлами и транзакциями.
 */
 
 #include "CSpiffsSystem.h"
@@ -17,20 +19,31 @@
 #include <sys\stat.h>
 #include "esp_task_wdt.h"
 
-static const char *TAG = "spiffs";
+static const char *TAG = "spiffs"; ///< Тег для логирования
 
-SemaphoreHandle_t CSpiffsSystem::mMutex = nullptr;
+SemaphoreHandle_t CSpiffsSystem::mMutex = nullptr; ///< Мьютекс для синхронизации доступа
 
+/*!
+    \brief Инициализация файловой системы SPIFFS
+    \param check Если true, выполняется проверка целостности файловой системы
+    \return true при успешной инициализации, false при ошибке
+    \details Монтирует раздел SPIFFS, при необходимости форматирует.
+             Проверяет состояние раздела и собирает мусор при необходимости.
+*/
 bool CSpiffsSystem::init(bool check)
 {
+    // Конфигурация параметров монтирования
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
         .partition_label = nullptr,
         .max_files = 15,
         .format_if_mount_failed = true};
+
+    // Попытка регистрации SPIFFS в VFS
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK)
     {
+        // Обработка различных ошибок монтирования
         if (ret == ESP_FAIL)
         {
             ESP_LOGE(TAG, "Failed to mount or format filesystem");
@@ -46,8 +59,11 @@ bool CSpiffsSystem::init(bool check)
         return false;
     }
 
+    // Инициализация мьютекса для транзакций
     CSpiffsSystem::mMutex = xSemaphoreCreateBinary();
     check |= endTransaction();
+
+    // Проверка целостности файловой системы при необходимости
     if (check)
     {
 #ifdef CONFIG_ESP_TASK_WDT_INIT
@@ -63,15 +79,16 @@ bool CSpiffsSystem::init(bool check)
         else
         {
             ESP_LOGI(TAG, "SPIFFS_check() successful");
+            esp_spiffs_gc(conf.partition_label, 100000); // Сборка мусора
         }
     }
 
-    esp_spiffs_gc(conf.partition_label, 250000);
-
+    // Получение информации о разделе
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
     if (ret != ESP_OK)
     {
+        // Попытка восстановления через форматирование
 #ifdef CONFIG_ESP_TASK_WDT_INIT
         ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
 #endif
@@ -86,101 +103,142 @@ bool CSpiffsSystem::init(bool check)
     return true;
 }
 
+/*!
+    \brief Освобождение ресурсов SPIFFS
+    \details Удаляет мьютекс и отмонтирует файловую систему
+*/
 void CSpiffsSystem::free()
 {
     vSemaphoreDelete(CSpiffsSystem::mMutex);
     esp_vfs_spiffs_unregister(nullptr);
 }
 
+/*!
+    \brief Завершение транзакции с файловой системой
+    \return true если требуется повторная проверка файловой системы
+    \details Обрабатывает специальные файлы транзакций ($ - временные, ! - для переименования).
+             Восстанавливает целостность после прерванных операций. Алгоритм:
+             1. При отсутствии маркера $ удаляет временные файлы и завершает отложенные переименования
+             2. При наличии $ и ! выполняет полную очистку следов транзакций
+             3. При наличии $ без ! инициирует восстановление прерванной операции
+*/
 bool CSpiffsSystem::endTransaction()
 {
     struct dirent *entry;
     DIR *dp;
     bool res = false;
+
+    // Открываем корневую директорию SPIFFS
     dp = opendir("/spiffs");
     if (dp == nullptr)
     {
         ESP_LOGE(TAG, "Failed to open dir /spiffs");
-        res = true;
+        res = true; // Требуется проверка ФС
     }
     else
     {
         std::string str = "/spiffs/";
+
+        // Проверка существования маркера активной транзакции
         FILE *f = std::fopen("/spiffs/$", "r");
         if (f == nullptr)
         {
+            // Режим восстановления: обрабатываем оставшиеся артефакты
             while ((entry = readdir(dp)))
             {
                 std::string fname = entry->d_name;
+
+                // Удаление временных файлов (оканчиваются на $)
                 if (fname[fname.length() - 1] == '$')
                 {
-                    res = true;
+                    res = true; // Файловая система модифицировалась
                     std::remove((str + fname).c_str());
-                    // ESP_LOGW(TAG, "Delete %s", fname.c_str());
                 }
+                // Завершение отложенного переименования (оканчиваются на !)
                 else if (fname[fname.length() - 1] == '!')
                 {
                     res = true;
+                    // Удаление оригинального файла перед переименованием
                     std::remove((str + fname.substr(0, fname.length() - 1)).c_str());
-                    std::rename((str + fname).c_str(), (str + fname.substr(0, fname.length() - 1)).c_str());
-                    // ESP_LOGW(TAG, "Rename %s", fname.c_str());
+                    // Переименование файла с ! в оригинальное имя
+                    std::rename((str + fname).c_str(),
+                                (str + fname.substr(0, fname.length() - 1)).c_str());
                 }
             }
             closedir(dp);
         }
         else
         {
+            // Активная транзакция обнаружена (существует маркер $)
             std::fclose(f);
             f = std::fopen("/spiffs/!", "r");
+
             if (f != nullptr)
             {
+                // Аварийное завершение: удаляем все следы транзакции
                 std::fclose(f);
                 while ((entry = readdir(dp)))
                 {
                     std::string fname = entry->d_name;
-                    if ((fname.length() > 1) && ((fname[fname.length() - 1] == '$') || (fname[fname.length() - 1] == '!')))
+                    // Удаление всех временных и промежуточных файлов
+                    if ((fname.length() > 1) &&
+                        ((fname[fname.length() - 1] == '$') ||
+                         (fname[fname.length() - 1] == '!')))
                     {
                         std::remove((str + fname).c_str());
-                        // ESP_LOGW(TAG, "Delete %s", fname.c_str());
                     }
                 }
                 closedir(dp);
+                // Удаление системных маркеров транзакции
                 std::remove("/spiffs/!");
                 std::remove("/spiffs/$");
                 res = true;
             }
             else
             {
+                // Начало процедуры восстановления транзакции
                 f = std::fopen("/spiffs/!", "w");
                 std::fclose(f);
+
+                // Этап 1: преобразование $-файлов в !-файлы
                 while ((entry = readdir(dp)))
                 {
                     std::string fname = entry->d_name;
-                    if ((fname.length() > 1) && (fname[fname.length() - 1] == '$'))
+                    if ((fname.length() > 1) &&
+                        (fname[fname.length() - 1] == '$'))
                     {
+                        // Заменяем $ на ! в имени файла
                         std::string fname2 = fname;
                         fname2[fname2.length() - 1] = '!';
+
+                        // Атомарное переименование с обработкой ошибок
                         if (std::rename(fname.c_str(), fname2.c_str()) != 0)
                         {
-                            ESP_LOGE(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
+                            ESP_LOGE(TAG, "Failed to rename file %s to %s",
+                                     fname.c_str(), fname2.c_str());
                             res = true;
                             break;
                         }
                     }
                 }
                 closedir(dp);
+
+                // Рекурсивный вызов для обработки новых !-файлов
                 if (res)
-                    endTransaction();
+                {
+                    endTransaction(); // Повторная попытка
+                }
                 else
                 {
+                    // Финализация: удаление маркеров транзакции
                     std::remove("/spiffs/!");
                     std::remove("/spiffs/$");
-                    res = endTransaction();
+                    res = endTransaction(); // Окончательная проверка
                 }
             }
         }
     }
-    return res;
+    return res; // true если были изменения, требующие проверки
 }
 
 std::string CSpiffsSystem::command(CJsonParser *cmd)
