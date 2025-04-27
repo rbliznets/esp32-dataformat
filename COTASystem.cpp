@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с обновлением firmware.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 0.0.0.1
+    \version 0.1.0.0
     \date 27.04.2025
 */
 
@@ -152,3 +152,53 @@ std::string COTASystem::command(CJsonParser *cmd)
     }
     return answer;
 }
+
+std::string COTASystem::update(uint8_t* data, uint32_t size)
+{
+    std::string answer;
+    abort();
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(nullptr);
+    if (update_partition == nullptr)
+    {
+        ESP_LOGE(TAG, "update partition failed");
+        answer = "\"error\":\"update partition failed\"";
+        return answer;
+    }
+    esp_err_t err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+        esp_ota_abort(update_handle);
+        update_handle = 0;
+        answer = "\"error\":\"esp_ota_begin failed\"";
+        return answer;
+    }
+    err = esp_ota_write(update_handle, data, size);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
+        abort();
+        answer += "\"error\":\"esp_ota_write failed\"";
+        return answer;
+    }
+    err = esp_ota_end(update_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_end failed (%s)", esp_err_to_name(err));
+        abort();
+        answer += "\"error\":\"esp_ota_end failed\"}";
+        return answer;
+    }
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
+        answer += "\"error\":\"esp_ota_set_boot_partition failed\"";
+        update_handle = 0;
+        return answer;
+    }
+    update_handle = 0;
+    answer = "\"ok\":\"firmware was saved\"";
+    return answer;
+}
+

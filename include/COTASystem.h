@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для работы с обновлением firmware.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 0.0.0.1
+	\version 0.1.0.0
 	\date 27.04.2025
 */
 
@@ -33,4 +33,6 @@ public:
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	static std::string command(CJsonParser *cmd);
+
+    static std::string update(uint8_t *data, uint32_t size);
 };

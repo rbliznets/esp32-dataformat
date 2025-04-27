@@ -2,13 +2,14 @@
     \file
     \brief Класс для работы с буфером PSRAM.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 0.0.0.1
+	\version 1.2.0.0
     \date 21.02.2024
 */
 
 #include "CBufferSystem.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
+#include "COTASystem.h"
 
 static const char *TAG = "buf";
 
@@ -43,7 +44,7 @@ void CBufferSystem::free()
     }
 }
 
-std::string CBufferSystem::command(CJsonParser *cmd, bool& cancel)
+std::string CBufferSystem::command(CJsonParser *cmd, bool &cancel)
 {
     std::string answer = "";
     int t2;
@@ -130,6 +131,19 @@ std::string CBufferSystem::command(CJsonParser *cmd, bool& cancel)
                     }
                     std::fclose(f);
                 }
+            }
+        }
+        else if (cmd->getField(t2, "ota"))
+        {
+            if (mBuffer == nullptr)
+            {
+                answer += "\"error\":\"Buf wasn't created\"";
+            }
+            else
+            {
+                answer += COTASystem::update(mBuffer, mSize);
+                if (cmd->getField(t2, "free"))
+                    free();
             }
         }
         else if (cmd->getString(t2, "rd", fname))
