@@ -16,7 +16,7 @@ class CNvsSystem
 {
 public:
 	/// Инициализация
-	static void init();
+	static bool init();
 	/// Закрытие файловой системы.
 	static void free();
 

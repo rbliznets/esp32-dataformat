@@ -15,6 +15,32 @@ static const char *TAG = "ota"; ///< Тег для логирования
 esp_ota_handle_t COTASystem::update_handle = 0;
 int COTASystem::offset = 0;
 
+bool COTASystem::init()
+{
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    ESP_LOGI(TAG, "Running partition: %s", running->label); ///< Вывод информации о текущем разделе
+    esp_ota_img_states_t ota_state;
+    if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK)
+    {
+        return (ota_state == ESP_OTA_IMG_PENDING_VERIFY);
+    }
+    return false;
+}
+
+void COTASystem::confirmFirmware(bool ok)
+{
+    if (ok)
+    {
+        ESP_LOGI(TAG, "Firmware confirmed");
+        esp_ota_mark_app_valid_cancel_rollback();
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Diagnostics failed! Start rollback to the previous version ...");
+        esp_ota_mark_app_invalid_rollback_and_reboot();
+    }
+}
+
 void COTASystem::abort()
 {
     if (update_handle != 0)

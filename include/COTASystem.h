@@ -22,6 +22,9 @@ protected:
     static int offset;
 public:
 
+    static bool init();
+    static void confirmFirmware(bool ok = true);
+
     static void abort();
 
 	/// Обработка команды.
