@@ -2,7 +2,7 @@
     \file
     \brief Класс для обнаружения json строки из потока байтов.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 0.1.0.0
+    \version 1.0.0.0
     \date 18.04.2022
 */
 
@@ -10,7 +10,7 @@
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 
-static const char *TAG = "buf";
+static const char *TAG = "json";
 
 CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free) : mSize(max_size), mFree(auto_free)
 {
@@ -68,11 +68,10 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                     }
                     if (start != -1)
                     {
-                        if ((i - start + 1) <= mSize)
+                        if ((i - start + 1) < mSize)
                         {
                             std::memcpy(mBuf, &data[start], i - start + 1);
                             mBuf[i - start + 1] = 0;
-                            // ESP_LOGI(TAG," %s",(char*)mBuf);
                             std::string s((char *)mBuf);
                             mStrings.push_back(s);
                         }
@@ -84,20 +83,19 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                     }
                     else
                     {
-                        if ((i + mBufIndex) <= mSize)
+                        if ((i + mBufIndex) < mSize)
                         {
                             std::memcpy(&mBuf[mBufIndex], data, i + 1);
                             mBufIndex += i + 1;
                             mBuf[mBufIndex] = 0;
-                            // ESP_LOGI(TAG," %s",(char*)mBuf);
                             std::string s((char *)mBuf);
                             mStrings.push_back(s);
-                            mBufIndex = 0;
                         }
                         else
                         {
                             ESP_LOGW(TAG, "datasize %d > bufsize %d", (i + mBufIndex), mSize);
                         }
+                        mBufIndex = 0;
                     }
                 }
             }
@@ -117,7 +115,7 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
 #endif
                 mBufIndex = 0;
             }
-            if ((size - start) <= mSize)
+            if ((size - start) < mSize)
             {
                 std::memcpy(mBuf, &data[start], (size - start));
                 mBufIndex = (size - start);
@@ -125,11 +123,11 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
             else
             {
                 ESP_LOGW(TAG, "datasize %d > bufsize %d", (size - start), mSize);
-            }
+             }
         }
         else
         {
-            if ((size + mBufIndex) <= mSize)
+            if ((size + mBufIndex) < mSize)
             {
                 std::memcpy(&mBuf[mBufIndex], data, size);
                 mBufIndex += size;
