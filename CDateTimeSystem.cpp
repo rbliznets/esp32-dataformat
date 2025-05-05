@@ -20,14 +20,15 @@ void CDateTimeSystem::init()
 		return;
 	nvs_handle_t nvs_handle;
 	time_t now = 1726208190;
-	if (nvs_open("nvs", NVS_READONLY, &nvs_handle) == ESP_OK)
+	esp_err_t err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
+	if (err == ESP_OK)
 	{
 		nvs_get_i64(nvs_handle, "timestamp", &now);
 		nvs_close(nvs_handle);
 	}
 	else
 	{
-		ESP_LOGE("DateTimeSystem", "Failed to open NVS");
+		ESP_LOGE("DateTimeSystem", "Failed to open NVS %d", err);
 	}
 	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
