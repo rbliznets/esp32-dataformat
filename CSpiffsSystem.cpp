@@ -313,12 +313,21 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                         fname = entry->d_name;
                         if (!dirs.contains(fname))
                         {
-                            dirs[fname] = 0;
-                            if (point)
-                                answer += ',';
-                            else
-                                point = true;
-                            answer = answer + "{\"name\":\"" + fname + "\"}";
+                            offset--;
+                            if (offset < 0)
+                            {
+                                if (count != 0)
+                                {
+                                    count--;
+
+                                    dirs[fname] = 0;
+                                    if (point)
+                                        answer += ',';
+                                    else
+                                        point = true;
+                                    answer = answer + "{\"name\":\"" + fname + "\"}";
+                                }
+                            }
                         }
                     }
                 }
