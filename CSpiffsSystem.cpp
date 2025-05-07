@@ -288,9 +288,9 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                             {
                                 count--;
                                 struct stat buf;
-                                int result = stat((fname2 + entry->d_name).c_str(), &buf);
+                                int res = stat((fname2 + entry->d_name).c_str(), &buf);
                                 int32_t sz = -1;
-                                if (result == 0)
+                                if (res == 0)
                                 {
                                     sz = buf.st_size;
                                 }
@@ -310,28 +310,35 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     else
                     {
                         *result = 0;
-                        fname = entry->d_name;
+                        fname = std::string(entry->d_name);
                         if (!dirs.contains(fname))
                         {
-                            offset--;
-                            if (offset < 0)
-                            {
-                                if (count != 0)
-                                {
-                                    count--;
-
-                                    dirs[fname] = 0;
-                                    if (point)
-                                        answer += ',';
-                                    else
-                                        point = true;
-                                    answer = answer + "{\"name\":\"" + fname + "\"}";
-                                }
-                            }
+                            dirs[fname] = 1;
+                        }
+                        else
+                        {
+                            dirs[fname]++;
                         }
                     }
                 }
                 closedir(dp);
+                for (const auto &[key, value] : dirs)
+                {
+                    offset--;
+                    if (offset < 0)
+                    {
+                        if (count != 0)
+                        {
+                            count--;
+                            if (point)
+                                answer += ',';
+                            else
+                                point = true;
+                            answer = answer + "{\"name\":\"" + key + "\",\"count\":" + std::to_string(value) + "}";
+                        }
+                        else break;
+                    }
+                }
                 answer += ']';
             }
             answer += '}';
