@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с SPIFFS.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 1.3.0.0
+    \version 1.3.1.0
     \date 12.12.2023
     \details Реализация методов для работы с файловой системой SPIFFS на ESP32.
              Включает функции инициализации, управления файлами и транзакциями.
@@ -436,12 +436,22 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             else
             {
                 int offset = 0;
+                long fsize = std::ftell(f);
                 std::vector<uint8_t> *data;
                 cmd->getInt(t2, "offset", offset);
-                if (offset != std::ftell(f))
+                if(offset < fsize)
+                {
+                    if(std::fseek(f, offset, SEEK_SET) == 0)
+                    {
+                        fsize = offset;
+                        answer += "\"rewrite\":true,";
+                    }
+                }
+
+                if (offset != fsize)
                 {
                     ESP_LOGW(TAG, "Wrong offset of file %s(%d)", fname.c_str(), offset);
-                    answer += "\"error\":\"Wrong offset of file " + fname + "\"";
+                    answer += "\"error\":\"Wrong offset of file " + fname + "(" + std::to_string(fsize) + ")\"";
                 }
                 else if (cmd->getBytes(t2, "data", data))
                 {
