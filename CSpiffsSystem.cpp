@@ -412,6 +412,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
             std::string str2 = "/spiffs/" + fname2;
+            std::remove(str2.c_str());
             if (std::rename(str.c_str(), str2.c_str()) != 0)
             {
                 ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
