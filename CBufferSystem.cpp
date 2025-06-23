@@ -2,7 +2,7 @@
     \file
     \brief Класс для работы с буфером PSRAM.
     \authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.2.0.0
+    \version 1.2.0.0
     \date 21.02.2024
 */
 
@@ -10,6 +10,7 @@
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "COTASystem.h"
+#include "CSpiffsSystem.h"
 
 static const char *TAG = "buf";
 
@@ -110,26 +111,15 @@ std::string CBufferSystem::command(CJsonParser *cmd, bool &cancel)
             else
             {
                 std::string str = "/spiffs/" + fname;
-                FILE *f = std::fopen(str.c_str(), "a");
-                if (f == nullptr)
+                if (!CSpiffsSystem::writeBuffer(str.c_str(), mBuffer, mSize))
                 {
-                    ESP_LOGE(TAG, "Failed to open file %s", fname.c_str());
-                    answer += "\"error\":\"Failed to open file " + fname + "\"";
+                    answer += "\"error\":\"Failed to write to file " + fname + "\"";
                 }
                 else
                 {
-                    if (std::fwrite(mBuffer, 1, mSize, f) != mSize)
-                    {
-                        ESP_LOGE(TAG, "Failed to write to file %s(%ld)", fname.c_str(), mSize);
-                        answer += "\"error\":\"Failed to write to file " + fname + "\"";
-                    }
-                    else
-                    {
-                        if (cmd->getField(t2, "free"))
-                            free();
-                        answer += "\"ok\":\"file " + fname + " was saved\"";
-                    }
-                    std::fclose(f);
+                    if (cmd->getField(t2, "free"))
+                        free();
+                    answer += "\"ok\":\"file " + fname + " was saved\"";
                 }
             }
         }

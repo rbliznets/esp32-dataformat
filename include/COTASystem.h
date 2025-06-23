@@ -13,12 +13,18 @@
 
 #include "freertos/FreeRTOS.h"
 #include "esp_ota_ops.h"
+#include <list>
+
+typedef void onOTAWork(bool lock);
 
 /// Статические методы для работы с обновлением firmware.
 class COTASystem
 {
 protected:
-    static esp_ota_handle_t update_handle;
+	static std::list<onOTAWork*> mWriteQueue;
+	static void writeEvent(bool lock);
+
+	static esp_ota_handle_t update_handle;
     static int offset;
 public:
 
@@ -35,4 +41,7 @@ public:
 	static std::string command(CJsonParser *cmd);
 
     static std::string update(uint8_t *data, uint32_t size);
+
+	static void addWriteEvent(onOTAWork* event);
+	static void removeWriteEvent(onOTAWork* event);
 };

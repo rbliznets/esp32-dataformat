@@ -12,6 +12,27 @@
 
 static const char *TAG = "ota"; ///< Тег для логирования
 
+std::list<onOTAWork *> COTASystem::mWriteQueue;
+
+void COTASystem::writeEvent(bool lock)
+{
+    for (auto const &event : mWriteQueue)
+    {
+        event(lock);
+    }
+}
+
+void COTASystem::addWriteEvent(onOTAWork *event)
+{
+    mWriteQueue.push_back(event);
+}
+
+void COTASystem::removeWriteEvent(onOTAWork *event)
+{
+    std::erase_if(mWriteQueue, [event](const auto &item)
+                  { return item == event; });
+}
+
 esp_ota_handle_t COTASystem::update_handle = 0;
 int COTASystem::offset = 0;
 
@@ -57,6 +78,7 @@ std::string COTASystem::command(CJsonParser *cmd)
     int t2;
     if (cmd->getObject(1, "ota", t2))
     {
+        writeEvent(true);
         esp_err_t err;
         answer = "\"ota\":{";
         std::string str;
@@ -82,6 +104,7 @@ std::string COTASystem::command(CJsonParser *cmd)
                 update_partition = esp_ota_get_next_update_partition(nullptr);
                 if (update_partition == nullptr)
                 {
+                    writeEvent(false);
                     ESP_LOGE(TAG, "update partition failed");
                     answer += "\"error\":\"update partition failed\"}";
                     return answer;
@@ -92,6 +115,7 @@ std::string COTASystem::command(CJsonParser *cmd)
                     ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
                     esp_ota_abort(update_handle);
                     update_handle = 0;
+                    writeEvent(false);
                     answer += "\"error\":\"esp_ota_begin failed\"}";
                     return answer;
                 }
@@ -102,6 +126,7 @@ std::string COTASystem::command(CJsonParser *cmd)
                 delete data;
                 ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
                 abort();
+                writeEvent(false);
                 answer += "\"error\":\"esp_ota_write failed\"}";
                 return answer;
             }
@@ -114,6 +139,7 @@ std::string COTASystem::command(CJsonParser *cmd)
                 {
                     ESP_LOGE(TAG, "esp_ota_end failed (%s)", esp_err_to_name(err));
                     abort();
+                    writeEvent(false);
                     answer += "\"error\":\"esp_ota_end failed\"}";
                     return answer;
                 }
@@ -121,6 +147,7 @@ std::string COTASystem::command(CJsonParser *cmd)
                 update_partition = esp_ota_get_next_update_partition(nullptr);
                 if (update_partition == nullptr)
                 {
+                    writeEvent(false);
                     ESP_LOGE(TAG, "update partition failed");
                     answer += "\"error\":\"update partition failed\"}";
                     offset = 0;
@@ -130,36 +157,42 @@ std::string COTASystem::command(CJsonParser *cmd)
                 err = esp_ota_set_boot_partition(update_partition);
                 if (err != ESP_OK)
                 {
+                    writeEvent(false);
                     ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
                     answer += "\"error\":\"esp_ota_set_boot_partition failed\"}";
                     offset = 0;
                     update_handle = 0;
                     return answer;
                 }
+                writeEvent(false);
                 answer += "\"offset\":" + std::to_string(offset) + ",\"mode\":\"end\"}";
                 offset = 0;
                 update_handle = 0;
             }
             else
             {
+                writeEvent(false);
                 answer += "\"offset\":" + std::to_string(offset) + "}";
             }
         }
         else
         {
+            writeEvent(false);
             answer += "\"error\":\"wrong format\"}";
         }
     }
     return answer;
 }
 
-std::string COTASystem::update(uint8_t* data, uint32_t size)
+std::string COTASystem::update(uint8_t *data, uint32_t size)
 {
     std::string answer;
+    writeEvent(true);
     abort();
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(nullptr);
     if (update_partition == nullptr)
     {
+        writeEvent(false);
         ESP_LOGE(TAG, "update partition failed");
         answer = "\"error\":\"update partition failed\"";
         return answer;
@@ -167,8 +200,9 @@ std::string COTASystem::update(uint8_t* data, uint32_t size)
     esp_err_t err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
         esp_ota_abort(update_handle);
+        writeEvent(false);
+        ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
         update_handle = 0;
         answer = "\"error\":\"esp_ota_begin failed\"";
         return answer;
@@ -176,29 +210,32 @@ std::string COTASystem::update(uint8_t* data, uint32_t size)
     err = esp_ota_write(update_handle, data, size);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
         abort();
+        writeEvent(false);
+        ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
         answer += "\"error\":\"esp_ota_write failed\"";
         return answer;
     }
     err = esp_ota_end(update_handle);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "esp_ota_end failed (%s)", esp_err_to_name(err));
         abort();
+        writeEvent(false);
+        ESP_LOGE(TAG, "esp_ota_end failed (%s)", esp_err_to_name(err));
         answer += "\"error\":\"esp_ota_end failed\"}";
         return answer;
     }
     err = esp_ota_set_boot_partition(update_partition);
     if (err != ESP_OK)
     {
+        writeEvent(false);
         ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
         answer += "\"error\":\"esp_ota_set_boot_partition failed\"";
         update_handle = 0;
         return answer;
     }
+    writeEvent(false);
     update_handle = 0;
     answer = "\"ok\":\"firmware was saved\"";
     return answer;
 }
-

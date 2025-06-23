@@ -133,11 +133,10 @@ void CSpiffsSystem::free()
 /*!
     \brief Завершение транзакции с файловой системой
     \return true если требуется повторная проверка файловой системы
-    \details Обрабатывает специальные файлы транзакций ($ - временные, ! - для переименования).
+    \details Обрабатывает специальные файлы транзакций ($ - для переименования, ! - для удаления).
              Восстанавливает целостность после прерванных операций. Алгоритм:
-             1. При отсутствии маркера $ удаляет временные файлы и завершает отложенные переименования
-             2. При наличии $ и ! выполняет полную очистку следов транзакций
-             3. При наличии $ без ! инициирует восстановление прерванной операции
+             1. При отсутствии $ удаляет временные файлы и завершает отложенные переименования
+             2. При наличии $ завершает транзакцию
 */
 bool CSpiffsSystem::endTransaction()
 {
@@ -171,15 +170,11 @@ bool CSpiffsSystem::endTransaction()
                     res = true; // Файловая система модифицировалась
                     std::remove((str + fname).c_str());
                 }
-                // Завершение отложенного переименования (оканчиваются на !)
+                // Удаление временных файлов (оканчиваются на !)
                 else if (fname[fname.length() - 1] == '!')
                 {
-                    res = true;
-                    // Удаление оригинального файла перед переименованием
-                    std::remove((str + fname.substr(0, fname.length() - 1)).c_str());
-                    // Переименование файла с ! в оригинальное имя
-                    std::rename((str + fname).c_str(),
-                                (str + fname.substr(0, fname.length() - 1)).c_str());
+                    res = true; // Файловая система модифицировалась
+                    std::remove((str + fname).c_str());
                 }
             }
             closedir(dp);
@@ -188,74 +183,84 @@ bool CSpiffsSystem::endTransaction()
         {
             // Активная транзакция обнаружена (существует маркер $)
             std::fclose(f);
-            f = std::fopen("/spiffs/!", "r");
 
-            if (f != nullptr)
+            // преобразование $-файлов и !-файлов
+            while ((entry = readdir(dp)))
             {
-                // Аварийное завершение: удаляем все следы транзакции
-                std::fclose(f);
-                while ((entry = readdir(dp)))
+                std::string fname = entry->d_name;
+                if ((fname.length() > 1) &&
+                    (fname[fname.length() - 1] == '$'))
                 {
-                    std::string fname = entry->d_name;
-                    // Удаление всех временных и промежуточных файлов
-                    if ((fname.length() > 1) &&
-                        ((fname[fname.length() - 1] == '$') ||
-                         (fname[fname.length() - 1] == '!')))
+                    // Удаляем $ в имени файла
+                    std::string fname2 = fname.substr(0, fname.length() - 1);
+
+                    // Удаление оригинального файла перед переименованием
+                    std::remove(fname2.c_str());
+                    // переименование с обработкой ошибок
+                    if (std::rename(fname.c_str(), fname2.c_str()) != 0)
                     {
-                        std::remove((str + fname).c_str());
+                        ESP_LOGE(TAG, "Failed to rename file %s to %s",
+                                 fname.c_str(), fname2.c_str());
                     }
                 }
-                closedir(dp);
-                // Удаление системных маркеров транзакции
-                std::remove("/spiffs/!");
-                std::remove("/spiffs/$");
-                res = true;
+                else if (fname[fname.length() - 1] == '!')
+                {
+                    // Удаляем ! в имени файла
+                    std::string fname2 = fname.substr(0, fname.length() - 1);
+
+                    // Удаление оригинального файла перед переименованием
+                    std::remove(fname2.c_str());
+                    if (std::remove(fname.c_str()) != 0)
+                    {
+                        ESP_LOGE(TAG, "Failed to remove file %s",
+                                 fname.c_str());
+                    }
+                }
+            }
+            closedir(dp);
+
+            // Рекурсивный вызов для обработки
+            if (res)
+            {
+                endTransaction(); // Повторная попытка
             }
             else
             {
-                // Начало процедуры восстановления транзакции
-                f = std::fopen("/spiffs/!", "w");
-                std::fclose(f);
-
-                // Этап 1: преобразование $-файлов в !-файлы
-                while ((entry = readdir(dp)))
-                {
-                    std::string fname = entry->d_name;
-                    if ((fname.length() > 1) &&
-                        (fname[fname.length() - 1] == '$'))
-                    {
-                        // Заменяем $ на ! в имени файла
-                        std::string fname2 = fname;
-                        fname2[fname2.length() - 1] = '!';
-
-                        // Атомарное переименование с обработкой ошибок
-                        if (std::rename(fname.c_str(), fname2.c_str()) != 0)
-                        {
-                            ESP_LOGE(TAG, "Failed to rename file %s to %s",
-                                     fname.c_str(), fname2.c_str());
-                            res = true;
-                            break;
-                        }
-                    }
-                }
-                closedir(dp);
-
-                // Рекурсивный вызов для обработки новых !-файлов
-                if (res)
-                {
-                    endTransaction(); // Повторная попытка
-                }
-                else
-                {
-                    // Финализация: удаление маркеров транзакции
-                    std::remove("/spiffs/!");
-                    std::remove("/spiffs/$");
-                    res = endTransaction(); // Окончательная проверка
-                }
+                // Финализация: удаление маркеров транзакции
+                std::remove("/spiffs/$");
+                res = true;
             }
         }
     }
     return res; // true если были изменения, требующие проверки
+}
+
+bool CSpiffsSystem::writeBuffer(const char *fileName, uint8_t *data, uint32_t size)
+{
+    writeEvent(true);
+    FILE *f = std::fopen(fileName, "a");
+    if (f == nullptr)
+    {
+        writeEvent(false);
+        ESP_LOGE(TAG, "Failed to open file %s", fileName);
+        return false;
+    }
+    else
+    {
+        if (std::fwrite(data, 1, size, f) != size)
+        {
+            std::fclose(f);
+            writeEvent(false);
+            ESP_LOGE(TAG, "Failed to write to file %s(%ld)", fileName, size);
+            return false;
+        }
+        else
+        {
+            std::fclose(f);
+            writeEvent(false);
+            return true;
+        }
+    }
 }
 
 std::string CSpiffsSystem::command(CJsonParser *cmd)
@@ -402,9 +407,17 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
             writeEvent(true);
-            std::remove(str.c_str());
-            writeEvent(false);
-            answer += "\"fd\":\"" + fname + "\"}";
+            if (std::filesystem::exists(str.c_str()))
+            {
+                std::remove(str.c_str());
+                writeEvent(false);
+                answer += "\"fd\":\"" + fname + "\"}";
+            }
+            else
+            {
+                writeEvent(false);
+                answer += "\"waring\":\"File do not exist\",\"fd\":\"" + fname + "\"}";
+            }
         }
         else if (cmd->getString(t2, "trans", fname))
         {
@@ -421,6 +434,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             else if (fname == "cancel")
             {
                 writeEvent(true);
+                std::remove("/spiffs/$");
                 endTransaction();
                 writeEvent(false);
                 answer += "\"trans\":\"cancel\"";
@@ -437,24 +451,33 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             std::string str = "/spiffs/" + fname;
             std::string str2 = "/spiffs/" + fname2;
             writeEvent(true);
-            // std::remove(str2.c_str());
-            if (std::rename(str.c_str(), str2.c_str()) != 0)
+            if (std::filesystem::exists(str.c_str()))
+            {
+                if (std::filesystem::exists(str2.c_str()))
+                {
+                    std::remove(str2.c_str());
+                    if (std::rename(str.c_str(), str2.c_str()) != 0)
+                    {
+                        writeEvent(false);
+                        ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
+                        answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
+                    }
+                    else
+                    {
+                        writeEvent(false);
+                        answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
+                    }
+                }
+            }
+            else if (std::filesystem::exists(str2.c_str()))
             {
                 writeEvent(false);
-                ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
-                if(std::filesystem::exists(str2.c_str()))
-                {
-                    answer += "\"waring\":\"Old file do not exist\",\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
-                }
-                else
-                {
-                    answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
-                }
+                answer += "\"waring\":\"Old file do not exist\",\"fnew\":\"" + fname2 + "\"";
             }
             else
             {
                 writeEvent(false);
-                answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
+                answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
             }
             answer += '}';
         }

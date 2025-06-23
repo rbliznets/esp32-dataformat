@@ -18,7 +18,6 @@
 
 typedef void onSpiffsWork(bool lock);
 
-
 /// Статические методы для работы с файловой системой.
 class CSpiffsSystem
 {
@@ -36,7 +35,9 @@ public:
 	/// Проверка на незавершенные транзакции и их очистка.
 	static bool endTransaction();
 
-	/// Обработка команды.
+    static bool writeBuffer(const char *fileName, uint8_t *data, uint32_t size);
+
+    /// Обработка команды.
 	/*!
 	  \param[in] cmd json объектом spiffs в корне.
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
