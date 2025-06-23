@@ -21,7 +21,26 @@
 
 static const char *TAG = "spiffs"; ///< Тег для логирования
 
-SemaphoreHandle_t CSpiffsSystem::mMutex = nullptr; ///< Мьютекс для синхронизации доступа
+std::list<onSpiffsWork *> CSpiffsSystem::mWriteQueue;
+
+void CSpiffsSystem::writeEvent(bool lock)
+{
+    for (auto const &event : mWriteQueue)
+    {
+        event(lock);
+    }
+}
+
+void CSpiffsSystem::addWriteEvent(onSpiffsWork *event)
+{
+    mWriteQueue.push_back(event);
+}
+
+void CSpiffsSystem::removeWriteEvent(onSpiffsWork *event)
+{
+    std::erase_if(mWriteQueue, [event](const auto &item)
+                  { return item == event; });
+}
 
 /*!
     \brief Инициализация файловой системы SPIFFS
@@ -59,8 +78,6 @@ bool CSpiffsSystem::init(bool check)
         return false;
     }
 
-    // Инициализация мьютекса для транзакций
-    CSpiffsSystem::mMutex = xSemaphoreCreateBinary();
     check |= endTransaction();
 
     // Проверка целостности файловой системы при необходимости
@@ -109,7 +126,6 @@ bool CSpiffsSystem::init(bool check)
 */
 void CSpiffsSystem::free()
 {
-    vSemaphoreDelete(CSpiffsSystem::mMutex);
     esp_vfs_spiffs_unregister(nullptr);
 }
 
@@ -336,7 +352,8 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                                 point = true;
                             answer = answer + "{\"name\":\"" + key + "\",\"count\":" + std::to_string(value) + "}";
                         }
-                        else break;
+                        else
+                            break;
                     }
                 }
                 answer += ']';
@@ -383,7 +400,9 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
         {
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
+            writeEvent(true);
             std::remove(str.c_str());
+            writeEvent(false);
             answer += "\"fd\":\"" + fname + "\"}";
         }
         else if (cmd->getString(t2, "trans", fname))
@@ -391,14 +410,18 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             answer = "\"spiffs\":{";
             if (fname == "end")
             {
+                writeEvent(true);
                 FILE *f = std::fopen("/spiffs/$", "w");
                 std::fclose(f);
                 endTransaction();
+                writeEvent(false);
                 answer += "\"trans\":\"end\"";
             }
             else if (fname == "cancel")
             {
+                writeEvent(true);
                 endTransaction();
+                writeEvent(false);
                 answer += "\"trans\":\"cancel\"";
             }
             else
@@ -412,14 +435,17 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
             std::string str2 = "/spiffs/" + fname2;
+            writeEvent(true);
             std::remove(str2.c_str());
             if (std::rename(str.c_str(), str2.c_str()) != 0)
             {
+                writeEvent(false);
                 ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
                 answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
             }
             else
             {
+                writeEvent(false);
                 answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
             }
             answer += '}';
@@ -428,9 +454,11 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
         {
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
+            writeEvent(true);
             FILE *f = std::fopen(str.c_str(), "a");
             if (f == nullptr)
             {
+                writeEvent(false);
                 ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
                 answer += "\"error\":\"Failed to open file " + fname + "\"";
             }
@@ -440,9 +468,9 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                 long fsize = std::ftell(f);
                 std::vector<uint8_t> *data;
                 cmd->getInt(t2, "offset", offset);
-                if(offset < fsize)
+                if (offset < fsize)
                 {
-                    if(std::fseek(f, offset, SEEK_SET) == 0)
+                    if (std::fseek(f, offset, SEEK_SET) == 0)
                     {
                         fsize = offset;
                         answer += "\"rewrite\":true,";
@@ -477,6 +505,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     answer += "\"error\":\"No data to write for " + fname + "\"";
                 }
                 std::fclose(f);
+                writeEvent(false);
             }
             answer += '}';
         }
@@ -484,9 +513,11 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
         {
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
+            writeEvent(true);
             FILE *f = std::fopen(str.c_str(), "w");
             if (f == nullptr)
             {
+                writeEvent(false);
                 ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
                 answer += "\"error\":\"Failed to open file " + fname + "\"";
             }
@@ -503,6 +534,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     answer += "\"size\":" + std::to_string(std::ftell(f));
                 }
                 std::fclose(f);
+                writeEvent(false);
             }
             answer += '}';
         }
@@ -510,9 +542,11 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
         {
             answer = "\"spiffs\":{";
             std::string str = "/spiffs/" + fname;
+            writeEvent(true);
             FILE *f = std::fopen(str.c_str(), "a");
             if (f == nullptr)
             {
+                writeEvent(false);
                 ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
                 answer += "\"error\":\"Failed to open file " + fname + "\"";
             }
@@ -529,6 +563,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     answer += "\"size\":" + std::to_string(std::ftell(f));
                 }
                 std::fclose(f);
+                writeEvent(false);
             }
             answer += '}';
         }
