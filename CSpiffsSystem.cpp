@@ -18,6 +18,7 @@
 #include <map>
 #include <sys\stat.h>
 #include "esp_task_wdt.h"
+#include <filesystem>
 
 static const char *TAG = "spiffs"; ///< Тег для логирования
 
@@ -436,12 +437,19 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             std::string str = "/spiffs/" + fname;
             std::string str2 = "/spiffs/" + fname2;
             writeEvent(true);
-            std::remove(str2.c_str());
+            // std::remove(str2.c_str());
             if (std::rename(str.c_str(), str2.c_str()) != 0)
             {
                 writeEvent(false);
                 ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
-                answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
+                if(std::filesystem::exists(str2.c_str()))
+                {
+                    answer += "\"waring\":\"Old file do not exist\",\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
+                }
+                else
+                {
+                    answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
+                }
             }
             else
             {
@@ -470,11 +478,11 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                 cmd->getInt(t2, "offset", offset);
                 if (offset < fsize)
                 {
-                    if (std::fseek(f, offset, SEEK_SET) == 0)
-                    {
-                        fsize = offset;
-                        answer += "\"rewrite\":true,";
-                    }
+                    std::fclose(f);
+                    std::filesystem::resize_file(str, offset);
+                    f = std::fopen(str.c_str(), "a");
+                    fsize = offset;
+                    answer += "\"rewrite\":true,";
                 }
 
                 if (offset != fsize)
