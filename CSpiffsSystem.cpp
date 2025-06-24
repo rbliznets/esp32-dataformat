@@ -287,9 +287,11 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
             struct dirent *entry;
             DIR *dp;
             std::map<std::string, uint32_t> dirs;
+            writeEvent(true);
             dp = opendir(fname2.c_str());
             if (dp == nullptr)
             {
+                writeEvent(false);
                 ESP_LOGE(TAG, "Failed to open dir %s", fname2.c_str());
                 answer += ",\"error\":\"Failed to open dir " + fname2 + "\"";
             }
@@ -344,6 +346,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                     }
                 }
                 closedir(dp);
+                writeEvent(false);
                 for (const auto &[key, value] : dirs)
                 {
                     offset--;
@@ -516,7 +519,7 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                 if (offset < fsize)
                 {
                     std::fclose(f);
-                    std::filesystem::resize_file(str, offset);
+                    truncate(str.c_str(), offset);
                     f = std::fopen(str.c_str(), "a");
                     fsize = offset;
                     answer += "\"rewrite\":true,";
