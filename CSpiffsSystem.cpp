@@ -195,9 +195,9 @@ bool CSpiffsSystem::endTransaction()
                     std::string fname2 = fname.substr(0, fname.length() - 1);
 
                     // Удаление оригинального файла перед переименованием
-                    std::remove(fname2.c_str());
+                    std::remove((str + fname2).c_str());
                     // переименование с обработкой ошибок
-                    if (std::rename(fname.c_str(), fname2.c_str()) != 0)
+                    if (std::rename((str + fname).c_str(), (str + fname2).c_str()) != 0)
                     {
                         ESP_LOGE(TAG, "Failed to rename file %s to %s",
                                  fname.c_str(), fname2.c_str());
@@ -209,8 +209,8 @@ bool CSpiffsSystem::endTransaction()
                     std::string fname2 = fname.substr(0, fname.length() - 1);
 
                     // Удаление оригинального файла перед переименованием
-                    std::remove(fname2.c_str());
-                    if (std::remove(fname.c_str()) != 0)
+                    std::remove((str + fname2).c_str());
+                    if (std::remove((str + fname).c_str()) != 0)
                     {
                         ESP_LOGE(TAG, "Failed to remove file %s",
                                  fname.c_str());
