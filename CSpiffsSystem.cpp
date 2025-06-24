@@ -468,6 +468,20 @@ std::string CSpiffsSystem::command(CJsonParser *cmd)
                         answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
                     }
                 }
+                else
+                {
+                    if (std::rename(str.c_str(), str2.c_str()) != 0)
+                    {
+                        writeEvent(false);
+                        ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
+                        answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
+                    }
+                    else
+                    {
+                        writeEvent(false);
+                        answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
+                    }
+                }
             }
             else if (std::filesystem::exists(str2.c_str()))
             {
