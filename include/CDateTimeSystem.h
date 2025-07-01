@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для синхронизации системного времени.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.0.0.0
+	\version 1.1.0.0
 	\date 13.09.2024
 */
 
@@ -24,8 +24,9 @@ public:
 	/// @brief Установка системного времени
 	/// @param now секунды с 1 января 1970 года
 	/// @param force устанавливать даже если время уже синхронизовано
+	/// @param approximate флаг неточного источника времени
 	/// @return true если установлено, иначе false
-	static bool setDateTime(time_t now, bool force = false);
+	static bool setDateTime(time_t now, bool force = false, bool approximate = false);
 
 	/// @brief Записать текущее время в NVS
 	/// @return true если записано, иначе false

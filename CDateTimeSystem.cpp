@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для синхронизации системного времени.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.0.0.0
+	\version 1.1.0.0
 	\date 13.09.2024
 */
 
@@ -34,19 +34,35 @@ void CDateTimeSystem::init()
 	settimeofday(&t, nullptr);
 }
 
-bool CDateTimeSystem::setDateTime(time_t now, bool force)
+bool CDateTimeSystem::setDateTime(time_t now, bool force, bool approximate)
 {
 	if (!force && mSync)
 		return false;
 	timeval t = {.tv_sec = now, .tv_usec = 0};
-	settimeofday(&t, nullptr);
-	saveDateTime();
+	if (approximate)
+	{
+		timeval tv_start;
+		gettimeofday(&tv_start, nullptr);
+		if (tv_start.tv_sec <= now)
+		{
+			settimeofday(&t, nullptr);
+			if (force)
+			{
+				saveDateTime();
+			}
+		}
+	}
+	else
+	{
+		settimeofday(&t, nullptr);
+		saveDateTime();
+		mSync = true;
+	}
 	return true;
 }
 
 bool CDateTimeSystem::saveDateTime()
 {
-	mSync = true;
 	nvs_handle_t nvs_handle;
 	if (nvs_open("nvs", NVS_READWRITE, &nvs_handle) == ESP_OK)
 	{
@@ -71,10 +87,12 @@ std::string CDateTimeSystem::command(CJsonParser *cmd)
 		int x;
 		bool force = false;
 		cmd->getBool(t, "force", force);
+		bool approximate = false;
+		cmd->getBool(t, "approximate", force);
 		if (cmd->getInt(t, "epoch", x))
 		{
 			cmd->getBool(t, "force", force);
-			force = setDateTime((time_t)x, force);
+			force = setDateTime((time_t)x, force, approximate);
 		}
 		else if (cmd->getBool(t, "force", force))
 		{
