@@ -24,7 +24,21 @@ bool CNvsSystem::init()
 		ESP_ERROR_CHECK(nvs_flash_erase());
 		err = nvs_flash_init();
 	}
-	return(err == ESP_OK);
+	if (err == ESP_OK)
+	{
+		err = nvs_flash_init_partition("nvs2");
+		if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+		{
+			ESP_LOGW(TAG, "nvs_flash_erase (%d)", err);
+			ESP_ERROR_CHECK(nvs_flash_erase_partition("nvs2"));
+			err = nvs_flash_init_partition("nvs2");
+		}
+	}
+	else
+	{
+		ESP_LOGE(TAG, "nvs failed (%d)", err);
+	}
+	return (err == ESP_OK);
 }
 
 void CNvsSystem::free()
