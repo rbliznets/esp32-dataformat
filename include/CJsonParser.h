@@ -31,6 +31,9 @@ protected:
 
 	std::string mJson; ///< Парсируемая строка.
 
+	bool mCRCExist=false;
+	uint16_t mCRC;
+
 public:
 	/// Конструктор класса.
 	CJsonParser();
@@ -42,14 +45,14 @@ public:
 	  \param[in] json Парсируемая строка.
 	  \return 1 (индекс первого токена) в случае успеха, иначе ошибка
 	*/
-	int parse(const char *json);
+	int parse(const char *json, int16_t& crc_status);
 	/// Парсинг.
 	/*!
 	  \param[in] data Парсируемая строка.
 	  \param[in] size Длина строка.
 	  \return 1 (индекс первого токена) в случае успеха, иначе ошибка
 	*/
-    int parse(uint8_t* data, size_t size);
+    int parse(uint8_t* data, size_t size, int16_t& crc_status);
 
     /// Строка Json.
     /*!

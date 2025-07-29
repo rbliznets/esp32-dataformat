@@ -12,6 +12,7 @@
 #include "jsmn.h"
 
 #include "CJsonParser.h"
+#include "CCRC16.h"
 #include <cstring>
 #include <cstdlib>
 #include "sdkconfig.h"
@@ -30,13 +31,27 @@ CJsonParser::~CJsonParser()
 	delete[] mRootTokens;
 }
 
-int CJsonParser::parse(const char *json)
+int CJsonParser::parse(const char *json, int16_t &crc_status)
 {
-	return parse((uint8_t *)json, std::strlen(json));
+	return parse((uint8_t *)json, std::strlen(json), crc_status);
 }
 
-int CJsonParser::parse(uint8_t *data, size_t size)
+int CJsonParser::parse(uint8_t *data, size_t size, int16_t &crc_status)
 {
+	if (size < 8)
+	{
+		std::string str((char *)&data[1], size - 2);
+		try
+		{
+			mCRC = std::stoi(str);
+			mCRCExist = true;
+			return -1;
+		}
+		catch (...)
+		{
+		}
+	}
+
 	jsmn_init(&mParser);
 	mJson.clear();
 
@@ -70,6 +85,25 @@ int CJsonParser::parse(uint8_t *data, size_t size)
 	if ((mRootSize > 1) && (mRootTokens[0].type == JSMN_OBJECT))
 	{
 		mJson = std::string((const char *)data, size);
+		if (mCRCExist)
+		{
+			uint16_t crc;
+			CCRC16::Create((uint8_t *)mJson.c_str(), mJson.length(), &crc);
+			mCRCExist = false;
+			if (crc == mCRC)
+			{
+				crc_status = 0;
+			}
+			else
+			{
+				crc_status = 1;
+				ESP_LOGW(TAG, "crc failed %d!=%d (%s)", mCRC, crc, mJson.c_str());
+			}
+		}
+		else
+		{
+			crc_status = -1;
+		}
 		return 1;
 	}
 	else

@@ -19,5 +19,11 @@ menu "Data Format"
         default 256
         help
             Default data size for field "text" (for "data" divided 2). 
+
+    config CRC_IN_RAM
+        bool "Place CRC code and data in IRAM"
+        default y
+        help
+            Speed up.
                 
 endmenu
