@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для работы с NVS.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.0.0.0
+	\version 1.1.0.0
 	\date 02.05.2024
 */
 
@@ -10,6 +10,9 @@
 
 #include "sdkconfig.h"
 #include "CJsonParser.h"
+
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 /// Статические методы для работы с nvs.
 class CNvsSystem
@@ -26,4 +29,11 @@ public:
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	static std::string command(CJsonParser *cmd);
+
+	/// Обработка команды.
+	/*!
+	  \param[in] cmd json объектом nvs в корне.
+	  \param[out] answer json с ответом.
+	*/
+	static void command(json& cmd, json& answer);
 };

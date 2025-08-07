@@ -3,6 +3,7 @@ description: formated data and spiffs
 url: https://github.com/rbliznets/esp32-dataformat
 dependencies:
   espressif/jsmn: ">=1.1.0"
+  johboh/nlohmann-json: =*
   idf: ">=5.0.0"
 targets:
   - esp32
