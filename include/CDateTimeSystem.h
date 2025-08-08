@@ -2,7 +2,7 @@
 	\file
 	\brief Класс для синхронизации системного времени.
 	\authors Близнец Р.А. (r.bliznets@gmail.com)
-	\version 1.1.0.0
+	\version 1.2.0.0
 	\date 13.09.2024
 */
 
@@ -10,6 +10,10 @@
 
 #include "sdkconfig.h"
 #include "CJsonParser.h"
+
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
 #include <sys/time.h>
 
 /// Статические для синхронизации системного времени.
@@ -38,6 +42,13 @@ public:
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	static std::string command(CJsonParser *cmd);
+
+	/// Обработка команды.
+	/*!
+	  \param[in] cmd json объектом nvs в корне.
+	  \param[out] answer json с ответом.
+	*/
+	static void command(json& cmd, json& answer);
 
 	/// @brief Флаг синхронизации
 	/// @return Флаг синхронизации

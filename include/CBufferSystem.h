@@ -11,6 +11,9 @@
 #include "sdkconfig.h"
 #include "CJsonParser.h"
 
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
 #define BUF_PART_SIZE (200) ///< Default size of each part in bytes. (default 200)
 
 /// @brief Класс для работы с буфером PSRAM.
@@ -51,6 +54,13 @@ public:
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	std::string command(CJsonParser *cmd, bool &cancel);
+
+	/// Обработка команды.
+	/*!
+	  \param[in] cmd json объектом nvs в корне.
+	  \param[out] answer json с ответом.
+	*/
+	void command(json& cmd, json& answer);
 
 	/// Добавление данных в буфер.
 	/*!

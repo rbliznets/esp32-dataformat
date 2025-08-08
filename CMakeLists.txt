@@ -6,4 +6,4 @@ idf_component_register(SRCS "COTASystem.cpp" "CDateTimeSystem.cpp" "CNvsSystem.c
                     "CCRC8.cpp"
                     "CCRC16.cpp"
                     INCLUDE_DIRS "include"
-                    REQUIRES jsmn spiffs nvs_flash app_update)
+                    REQUIRES jsmn spiffs nvs_flash app_update nlohmann-json)

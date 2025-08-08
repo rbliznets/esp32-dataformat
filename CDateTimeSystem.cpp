@@ -78,6 +78,48 @@ bool CDateTimeSystem::saveDateTime()
 	return false;
 }
 
+void CDateTimeSystem::command(json &cmd, json &answer)
+{
+	if (cmd.contains("sync"))
+	{
+		bool force = false;
+		if (cmd["sync"].contains("force") && cmd["sync"]["force"].is_boolean())
+		{
+			force = cmd["sync"]["force"].template get<bool>();
+		}
+		bool approximate = false;
+		if (cmd["sync"].contains("approximate") && cmd["sync"]["approximate"].is_boolean())
+		{
+			approximate = cmd["sync"]["approximate"].template get<bool>();
+		}
+		time_t epoch;
+		if (cmd["sync"].contains("epoch") && cmd["sync"]["epoch"].is_number_unsigned())
+		{
+			epoch = cmd["sync"]["epoch"].template get<time_t>();
+			force = setDateTime(epoch, force, approximate);
+		}
+		else if (cmd["sync"].contains("force"))
+		{
+			if (force)
+			{
+				force = saveDateTime();
+			}
+		}
+		else
+		{
+			answer["sync"]["error"] = "wrong param";
+			return;
+		}
+
+		answer["sync"]["result"] = force;
+		timeval tv_start;
+		gettimeofday(&tv_start, nullptr);
+		answer["sync"]["epoch"] = tv_start.tv_sec;
+		if (!mSync)
+			answer["sync"]["sync"] = false;
+	}
+}
+
 std::string CDateTimeSystem::command(CJsonParser *cmd)
 {
 	std::string answer = "";

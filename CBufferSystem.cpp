@@ -45,6 +45,43 @@ void CBufferSystem::free()
     }
 }
 
+void CBufferSystem::command(json &cmd, json &answer)
+{
+	if (cmd.contains("buf"))
+	{
+		if (cmd["buf"].contains("create") && cmd["buf"]["create"].is_number_unsigned())
+		{
+			uint32_t x = cmd["buf"]["create"].template get<uint32_t>();
+            if(init(x))
+            {
+		        if (cmd["buf"].contains("part") && cmd["buf"]["part"].is_number_unsigned())
+                {
+                    mPart = cmd["buf"]["part"].template get<uint16_t>();
+                }
+                else
+                {
+                    mPart = BUF_PART_SIZE;
+                }
+                mLastPart = mSize / mPart;
+                if (mSize % mPart == 0)
+                    mLastPart--;
+                mParts = new uint8_t[mLastPart + 1];
+                std::memset(mParts, 0, mLastPart + 1);
+                mRead = false;
+                std::string str = "Buf wasn created ";
+                str += std::to_string(mSize) + "(" + std::to_string(mPart) + ")";
+                answer["buf"]["ok"] = str;
+            }
+            else
+            {
+                std::string str = "Buf wasn't created ";
+                str += std::to_string(x);
+                answer["buf"]["error"] = str;
+            }
+		}
+	}
+}
+
 std::string CBufferSystem::command(CJsonParser *cmd, bool &cancel)
 {
     std::string answer = "";
