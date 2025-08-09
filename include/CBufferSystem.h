@@ -60,7 +60,7 @@ public:
 	  \param[in] cmd json объектом nvs в корне.
 	  \param[out] answer json с ответом.
 	*/
-	void command(json& cmd, json& answer);
+	void command(json& cmd, json& answer, bool &cancel);
 
 	/// Добавление данных в буфер.
 	/*!

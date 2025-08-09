@@ -15,6 +15,9 @@
 #include "freertos/semphr.h" 
 #include <list>
 
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
 // Тип функции обратного вызова для событий работы с SPIFFS
 // lock: true - начало транзакции (запись), false - окончание транзакции
 typedef void onSpiffsWork(bool lock);
@@ -66,6 +69,14 @@ public:
      * Выполняет атомарную операцию записи с блокировкой файловой системы
      */
     static bool writeBuffer(const char *fileName, uint8_t *data, uint32_t size);
+
+	/// Обработка команды.
+	/*!
+     * @brief Обработка команд JSON для SPIFFS
+     * @param cmd JSON-объект с командой в корне файловой системы
+	 * @param[out] answer json с ответом.
+	*/
+	static void command(json& cmd, json& answer);
 
     /*!
      * @brief Обработка команд JSON для SPIFFS

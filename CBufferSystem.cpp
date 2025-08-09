@@ -45,8 +45,9 @@ void CBufferSystem::free()
     }
 }
 
-void CBufferSystem::command(json &cmd, json &answer)
+void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
 {
+    cancel = false;
 	if (cmd.contains("buf"))
 	{
 		if (cmd["buf"].contains("create") && cmd["buf"]["create"].is_number_unsigned())
