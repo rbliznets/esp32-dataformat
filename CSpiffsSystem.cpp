@@ -396,6 +396,8 @@ void CSpiffsSystem::command(json &cmd, json &answer)
         {
             std::string fname = cmd["spiffs"]["ls"].template get<std::string>();
             std::string fname2 = "/spiffs";
+            answer["spiffs"]["root"] = fname;
+
             int offset = 0;
             int count = -1;
             if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
@@ -656,7 +658,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     {
                         // Convert the two-character hex string to an integer with base 16
                         uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
-                        data.push_back(byteValue);
+                        data[i >> 1] = byteValue;
                     }
                     catch (const std::invalid_argument &e)
                     {
@@ -665,7 +667,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     }
                     catch (const std::out_of_range &e)
                     {
-                        answer["spiffs"]["error"] = "IHex value out of range for uint8_t: " + byteStr;
+                        answer["spiffs"]["error"] = "Hex value out of range for uint8_t: " + byteStr;
                         return;
                     }
                 }
