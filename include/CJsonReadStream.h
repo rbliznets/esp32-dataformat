@@ -50,4 +50,12 @@ public:
       \return true если есть строка.
     */
     bool get(std::string &str);
+
+    
+	/// Модифицировать строку.
+	/*!
+	  \param[in|out] value строка.
+	  Добавляет символ \ перед "
+	*/
+	static void updateString(std::string &value);
 };

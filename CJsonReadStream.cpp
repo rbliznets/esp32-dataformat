@@ -160,3 +160,13 @@ bool CJsonReadStream::get(std::string &str)
     else
         return false;
 }
+
+void CJsonReadStream::updateString(std::string &value)
+{
+	int index = 0;
+	while ((index = value.find("\"", index)) >= 0)
+	{
+		value.insert(index, "\\");
+		index += 2;
+	}
+}

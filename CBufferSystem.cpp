@@ -48,14 +48,15 @@ void CBufferSystem::free()
 void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
 {
     cancel = false;
-	if (cmd.contains("buf"))
-	{
-		if (cmd["buf"].contains("create") && cmd["buf"]["create"].is_number_unsigned())
-		{
-			uint32_t x = cmd["buf"]["create"].template get<uint32_t>();
-            if(init(x))
+    if (cmd.contains("buf"))
+    {
+        answer["buf"] = json::object();
+        if (cmd["buf"].contains("create") && cmd["buf"]["create"].is_number_unsigned())
+        {
+            uint32_t x = cmd["buf"]["create"].template get<uint32_t>();
+            if (init(x))
             {
-		        if (cmd["buf"].contains("part") && cmd["buf"]["part"].is_number_unsigned())
+                if (cmd["buf"].contains("part") && cmd["buf"]["part"].is_number_unsigned())
                 {
                     mPart = cmd["buf"]["part"].template get<uint16_t>();
                 }
@@ -79,8 +80,136 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
                 str += std::to_string(x);
                 answer["buf"]["error"] = str;
             }
-		}
-	}
+        }
+        else if (cmd["buf"].contains("check"))
+        {
+            if (mParts == nullptr)
+            {
+                answer["buf"]["error"] = "Buf wasn't created";
+            }
+            else
+            {
+                answer["buf"]["empty"] = json::array();
+                for (int i = 0; i <= mLastPart; i++)
+                {
+                    if (mParts[i] == 0)
+                    {
+                        answer["buf"]["empty"] += std::to_string(i);
+                    }
+                }
+                answer["buf"]["size"] = mSize;
+                answer["buf"]["part"] = mPart;
+            }
+        }
+        else if (cmd["buf"].contains("wr") && cmd["buf"]["wr"].is_string())
+        {
+            if (mBuffer == nullptr)
+            {
+                answer["buf"]["error"] = "Buf wasn't created";
+            }
+            else
+            {
+                std::string fname = cmd["buf"]["wr"].template get<std::string>();
+                std::string str = "/spiffs/" + fname;
+                if (!CSpiffsSystem::writeBuffer(str.c_str(), mBuffer, mSize))
+                {
+                    answer["buf"]["error"] = "Failed to write to file " + fname;
+                }
+                else
+                {
+                    if (cmd["buf"].contains("free"))
+                        free();
+                    answer["buf"]["ok"] = "file " + fname + " was saved";
+                }
+            }
+        }
+        else if (cmd["buf"].contains("ota"))
+        {
+            if (mBuffer == nullptr)
+            {
+                answer["buf"]["error"] = "Buf wasn't created";
+            }
+            else
+            {
+                answer["buf"] = json::parse("{" + COTASystem::update(mBuffer, mSize) + "}");
+                if (cmd["buf"].contains("free"))
+                    free();
+            }
+        }
+        else if (cmd["buf"].contains("rd") && cmd["buf"]["rd"].is_string())
+        {
+            std::string fname = cmd["buf"]["rd"].template get<std::string>();
+            std::string str = "/spiffs/" + fname;
+            FILE *f = std::fopen(str.c_str(), "r");
+            if (f == nullptr)
+            {
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer["buf"]["error"] = "Failed to open file " + fname;
+            }
+            else
+            {
+                answer["buf"]["fr"] = fname;
+                std::fseek(f, 0, SEEK_END);
+                int32_t sz = std::ftell(f);
+                if (init(sz))
+                {
+                    if (cmd["buf"].contains("part") && cmd["buf"]["part"].is_number_unsigned())
+                        mPart = cmd["buf"]["part"].template get<uint16_t>();
+                    else
+                        mPart = BUF_PART_SIZE;
+                    mLastPart = mSize / mPart;
+                    if (mSize % mPart == 0)
+                        mLastPart--;
+                    std::fseek(f, 0, SEEK_SET);
+                    size_t sz = std::fread(mBuffer, 1, mSize, f);
+                    if (sz == mSize)
+                    {
+                        mParts = new uint8_t[mLastPart + 1];
+                        std::memset(mParts, 1, mLastPart + 1);
+                        answer["buf"]["ok"] = "buffer was loaded from " + fname;
+                        answer["buf"]["size"] = mSize;
+                        answer["buf"]["part"] = mPart;
+                        mRead = true;
+                    }
+                    else
+                    {
+                        free();
+                        answer["buf"]["error"] = "Failed to read file " + fname;
+                    }
+                }
+                else
+                {
+                    answer["buf"]["error"] = "Buf wasn't created " + std::to_string(sz);
+                }
+                std::fclose(f);
+            }
+        }
+        else if (cmd["buf"].contains("free"))
+        {
+            if (mBuffer == nullptr)
+            {
+                answer["buf"]["error"] = "Buf wasn't created";
+            }
+            else
+            {
+                free();
+                answer["buf"]["ok"] = "buffer was deleted";
+            }
+        }
+        else if (cmd["buf"].contains("cancel"))
+        {
+            if (mBuffer == nullptr)
+            {
+                answer["buf"]["error"] = "Buf wasn't created";
+            }
+            else
+            {
+                free();
+                answer["buf"]["ok"] = "buffer was deleted";
+                cancel = true;
+            }
+        }
+    }
 }
 
 std::string CBufferSystem::command(CJsonParser *cmd, bool &cancel)

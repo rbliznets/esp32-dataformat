@@ -9,6 +9,7 @@
 */
 
 #include "CSpiffsSystem.h"
+#include "CJsonReadStream.h"
 #include "esp_spiffs.h"
 #include "esp_log.h"
 #include <cstdio>
@@ -644,10 +645,9 @@ void CSpiffsSystem::command(json &cmd, json &answer)
         {
             std::string fname = cmd["spiffs"]["wr"].template get<std::string>();
             std::string str = "/spiffs/" + fname;
-            std::string hexString;
             if (cmd["spiffs"].contains("data") && cmd["spiffs"]["data"].is_string())
             {
-                hexString = cmd["spiffs"]["data"].template get<std::string>();
+                std::string hexString = cmd["spiffs"]["data"].template get<std::string>();
                 std::vector<uint8_t> data(hexString.length() / 2);
                 for (size_t i = 0; i < hexString.length(); i += 2)
                 {
@@ -725,6 +725,107 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             else
             {
                 answer["spiffs"]["error"] = "No data to write for " + fname;
+            }
+        }
+        else if (cmd["spiffs"].contains("ct") && cmd["spiffs"]["ct"].is_string() && cmd["spiffs"].contains("text") && cmd["spiffs"]["text"].is_string())
+        {
+            std::string fname = cmd["spiffs"]["ct"].template get<std::string>();
+            std::string fname2 = cmd["spiffs"]["text"].template get<std::string>();
+            std::string str = "/spiffs/" + fname;
+            writeEvent(true);
+            FILE *f = std::fopen(str.c_str(), "w");
+
+            if (f == nullptr)
+            {
+                writeEvent(false);
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer["spiffs"]["error"] = "Failed to open file " + fname;
+            }
+            else
+            {
+                if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
+                {
+                    ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
+                    answer["spiffs"]["error"] = "Failed to write to file " + fname;
+                }
+                else
+                {
+                    answer["spiffs"]["tc"] = fname;
+                    answer["spiffs"]["size"] = std::to_string(std::ftell(f));
+                }
+                std::fclose(f);
+                writeEvent(false);
+            }
+        }
+        else if (cmd["spiffs"].contains("at") && cmd["spiffs"]["at"].is_string() && cmd["spiffs"].contains("text") && cmd["spiffs"]["text"].is_string())
+        {
+            std::string fname = cmd["spiffs"]["at"].template get<std::string>();
+            std::string fname2 = cmd["spiffs"]["text"].template get<std::string>();
+            std::string str = "/spiffs/" + fname;
+            writeEvent(true);
+            FILE *f = std::fopen(str.c_str(), "a");
+
+            if (f == nullptr)
+            {
+                writeEvent(false);
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer["spiffs"]["error"] = "Failed to open file " + fname;
+            }
+            else
+            {
+                if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
+                {
+                    ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
+                    answer["spiffs"]["error"] = "Failed to write to file " + fname;
+                }
+                else
+                {
+                    answer["spiffs"]["ta"] = fname;
+                    answer["spiffs"]["size"] = std::to_string(std::ftell(f));
+                }
+                std::fclose(f);
+                writeEvent(false);
+            }
+        }
+        else if (cmd["spiffs"].contains("rt") && cmd["spiffs"]["rt"].is_string())
+        {
+            std::string fname = cmd["spiffs"]["at"].template get<std::string>();
+            std::string str = "/spiffs/" + fname;
+            FILE *f = std::fopen(str.c_str(), "r");
+
+            if (f == nullptr)
+            {
+                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
+                answer["spiffs"]["error"] = "Failed to open file " + fname;
+            }
+            else
+            {
+                answer["spiffs"]["tr"] = fname;
+                int offset = 0;
+                if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
+                {
+                    offset = cmd["spiffs"]["offset"].template get<int>();
+                }
+                if (offset != 0)
+                {
+                    answer["spiffs"]["offset"] = offset;
+                }
+                int size = CONFIG_DATAFORMAT_DEFAULT_DATA_SIZE;
+                if (cmd["spiffs"].contains("size") && cmd["spiffs"]["size"].is_number_unsigned())
+                {
+                    size = cmd["spiffs"]["size"].template get<int>();
+                }
+                uint8_t *data = new uint8_t[size + 1];
+                // Чтение текста
+                std::fseek(f, offset, SEEK_SET);
+                size = std::fread(data, 1, size, f);
+                std::fclose(f);
+                data[size] = 0;
+                std::string str((const char *)data);
+                delete[] data;
+
+                CJsonReadStream::updateString(str);
+                answer["spiffs"]["text"] = str;
             }
         }
     }

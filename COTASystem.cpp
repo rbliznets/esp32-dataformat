@@ -72,6 +72,135 @@ void COTASystem::abort()
     }
 }
 
+void COTASystem::command(json &cmd, json &answer)
+{
+    if (cmd.contains("ota") && cmd["ota"].is_object())
+    {
+        answer["ota"] = json::object();
+        esp_err_t err;
+        std::string str;
+        bool end = false;
+
+        if (cmd["ota"].contains("mode") && cmd["spiffs"]["ota"].is_string())
+        {
+            str = cmd["ota"]["mode"].template get<std::string>();
+            if (str == "begin")
+            {
+                abort();
+            }
+            else if (str == "end")
+            {
+                end = true;
+            }
+        }
+        if (cmd["ota"].contains("data") && cmd["ota"]["data"].is_string())
+        {
+            std::string hexString = cmd["ota"]["data"].template get<std::string>();
+            std::vector<uint8_t> data(hexString.length() / 2);
+            for (size_t i = 0; i < hexString.length(); i += 2)
+            {
+                std::string byteStr = hexString.substr(i, 2);
+                try
+                {
+                    // Convert the two-character hex string to an integer with base 16
+                    uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
+                    data.push_back(byteValue);
+                }
+                catch (const std::invalid_argument &e)
+                {
+                    answer["ota"]["error"] = "Invalid hex character in string: " + byteStr;
+                    return;
+                }
+                catch (const std::out_of_range &e)
+                {
+                    answer["ota"]["error"] = "IHex value out of range for uint8_t: " + byteStr;
+                    return;
+                }
+            }
+            writeEvent(true);
+            const esp_partition_t *update_partition;
+            if (update_handle == 0)
+            {
+                update_partition = esp_ota_get_next_update_partition(nullptr);
+                if (update_partition == nullptr)
+                {
+                    writeEvent(false);
+                    ESP_LOGE(TAG, "update partition failed");
+                    answer["ota"]["error"] = "update partition failed";
+                    return;
+                }
+                err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
+                if (err != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+                    esp_ota_abort(update_handle);
+                    update_handle = 0;
+                    writeEvent(false);
+                    answer["ota"]["error"] = "esp_ota_begin failed";
+                    return;
+                }
+            }
+            err = esp_ota_write(update_handle, (const void *)data.data(), data.size());
+            if (err != ESP_OK)
+            {
+                ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
+                abort();
+                writeEvent(false);
+                answer["ota"]["error"] = "esp_ota_write failed";
+                return;
+            }
+            offset += data.size();
+            if (end)
+            {
+                err = esp_ota_end(update_handle);
+                if (err != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "esp_ota_end failed (%s)", esp_err_to_name(err));
+                    abort();
+                    writeEvent(false);
+                    answer["ota"]["error"] = "esp_ota_end failed";
+                    return;
+                }
+
+                update_partition = esp_ota_get_next_update_partition(nullptr);
+                if (update_partition == nullptr)
+                {
+                    writeEvent(false);
+                    ESP_LOGE(TAG, "update partition failed");
+                    answer["ota"]["error"] = "update partition failed";
+                    offset = 0;
+                    update_handle = 0;
+                    return;
+                }
+                err = esp_ota_set_boot_partition(update_partition);
+                if (err != ESP_OK)
+                {
+                    writeEvent(false);
+                    ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
+                    answer["ota"]["error"] = "esp_ota_set_boot_partition failed";
+                    offset = 0;
+                    update_handle = 0;
+                    return;
+                }
+                writeEvent(false);
+                answer["ota"]["offset"] = offset;
+                answer["ota"]["mode"] = "end";
+                offset = 0;
+                update_handle = 0;
+            }
+            else
+            {
+                writeEvent(false);
+                answer["ota"]["offset"] = offset;
+            }
+        }
+        else
+        {
+            answer["ota"]["error"] = "wrong format";
+        }
+    }
+}
+
 std::string COTASystem::command(CJsonParser *cmd)
 {
     std::string answer = "";

@@ -15,6 +15,9 @@
 #include "esp_ota_ops.h"
 #include <list>
 
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
 typedef void onOTAWork(bool lock);
 
 /// Статические методы для работы с обновлением firmware.
@@ -39,6 +42,14 @@ public:
 	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
 	*/
 	static std::string command(CJsonParser *cmd);
+
+	/// Обработка команды.
+	/*!
+     * @brief Обработка команд JSON для SPIFFS
+     * @param cmd JSON-объект с командой в корне файловой системы
+	 * @param[out] answer json с ответом.
+	*/
+	static void command(json& cmd, json& answer);
 
     static std::string update(uint8_t *data, uint32_t size);
 
