@@ -826,7 +826,6 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 std::string str((const char *)data);
                 delete[] data;
 
-                CJsonReadStream::updateString(str);
                 answer["spiffs"]["text"] = str;
             }
         }
