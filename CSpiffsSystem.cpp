@@ -791,7 +791,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
         }
         else if (cmd["spiffs"].contains("rt") && cmd["spiffs"]["rt"].is_string())
         {
-            std::string fname = cmd["spiffs"]["at"].template get<std::string>();
+            std::string fname = cmd["spiffs"]["rt"].template get<std::string>();
             std::string str = "/spiffs/" + fname;
             FILE *f = std::fopen(str.c_str(), "r");
 
