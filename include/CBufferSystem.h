@@ -9,70 +9,79 @@
 #pragma once
 
 #include "sdkconfig.h"
-#include "CJsonParser.h"
 
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-#define BUF_PART_SIZE (200) ///< Default size of each part in bytes. (default 200)
+#define BUF_PART_SIZE (200) ///< Размер части буфера по умолчанию в байтах
 
-/// @brief Класс для работы с буфером PSRAM.
+/// @brief Класс для работы с буфером PSRAM с возможностью почастного заполнения.
 class CBufferSystem
 {
 protected:
-	uint8_t *mBuffer = nullptr;		///< Pointer to the buffer.
-	uint32_t mSize;					///< Size of the buffer in bytes.
-	uint16_t mPart = BUF_PART_SIZE; ///< Size of each part in bytes. (default BUF_PART_SIZE)
-	uint8_t *mParts = nullptr;		///< Pointer to an array of part sizes.
-	uint16_t mLastPart;				///< Index of the last part in the array.
-	bool mRead = false;				///< Flag indicating if the buffer is being read.
+	uint8_t *mBuffer = nullptr;		///< Указатель на буфер данных в памяти
+	uint32_t mSize;					///< Общий размер буфера в байтах
+	uint16_t mPart = BUF_PART_SIZE; ///< Размер каждой части буфера в байтах
+	uint8_t *mParts = nullptr;		///< Массив флагов состояния частей (0 - пустая, 1 - заполненная)
+	uint16_t mLastPart;				///< Индекс последней части в массиве (нумерация с 0)
+	bool mRead = false;				///< Флаг, указывающий что буфер загружен из файла и готов к чтению
 
 	/**
 		@fn CBufferSystem::init(uint32_t size)
-		@brief Initializes the buffer with a specified size.
-		@param size The size of the buffer to initialize.
-		@return Returns true if initialization was successful, false otherwise.
+		@brief Инициализирует буфер заданного размера в PSRAM или обычной памяти.
+		@param size Размер буфера в байтах для выделения памяти.
+		@return Возвращает true если инициализация прошла успешно, false в случае ошибки выделения памяти.
 	*/
 	bool init(uint32_t size);
 
 	/**
 	@fn CBufferSystem::free()
-	@brief Frees the allocated buffer and resets its properties.
+	@brief Освобождает выделенную память буфера и сбрасывает все свойства класса.
 	*/
 	void free();
 
 public:
-	/// @brief Denstructor for CBufferSystem.
+	/// @brief Деструктор класса CBufferSystem. Автоматически освобождает память буфера.
 	~CBufferSystem()
 	{
 		free();
 	};
 
-	/// Обработка команды.
+	/// Обработка JSON-команд для управления буфером.
 	/*!
-	  \param[in] cmd json объектом spiffs в корне.
-	  \return json строка с ответом (без обрамления в начале и конце {}), либо "".
-	*/
-	std::string command(CJsonParser *cmd, bool &cancel);
-
-	/// Обработка команды.
-	/*!
-	  \param[in] cmd json объектом nvs в корне.
-	  \param[out] answer json с ответом.
+	  \param[in] cmd JSON-объект с командами в корне (содержит ключ "buf").
+	  \param[out] answer JSON-объект с ответом на команду.
+	  \param[out] cancel Флаг отмены операции (устанавливается в true для команды "cancel").
+	  
+	  Поддерживаемые команды:
+	  - "create": создание буфера заданного размера
+	  - "check": проверка состояния буфера и списка незаполненных частей
+	  - "wr": запись буфера в файл
+	  - "ota": выполнение OTA-обновления из буфера
+	  - "rd": чтение буфера из файла
+	  - "free": освобождение буфера
+	  - "cancel": отмена операции с освобождением буфера
 	*/
 	void command(json& cmd, json& answer, bool &cancel);
 
-	/// Добавление данных в буфер.
+	/// Добавление данных в буфер по частям.
 	/*!
-	  \param[in] data указатель на данные.
-	  \param[in] size размер данных.
+	  \param[in] data Указатель на данные (первые 2 байта содержат номер части, остальные - данные).
+	  \param[in] size Размер данных в байтах (включая 2 байта номера части).
+	  
+	  Данные добавляются в буфер в соответствии с номером части, указанной в первых двух байтах.
+	  Каждая часть помечается как заполненная в массиве mParts.
 	*/
 	void addData(uint8_t *data, uint32_t size);
 
-	/// Получение данных из буфера.
+	/// Получение данных из буфера по частям для последовательного чтения.
 	/*!
-	  \param[out] size размер полученных данных.
-	  \return указатель на данные или nullptr.
+	  \param[out] size Размер полученных данных в байтах.
+	  \param[out] index Номер части, из которой получены данные.
+	  \return Указатель на данные или nullptr если все части уже прочитаны или буфер не загружен.
+	  
+	  Функция возвращает указатель на следующую непрочитанную часть буфера и помечает её как прочитанную.
+	  После чтения все части будут последовательно возвращены, после чего функция вернёт nullptr.
 	*/
 	uint8_t *getData(uint32_t &size, uint16_t &index);
 };

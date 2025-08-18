@@ -1,7 +1,7 @@
 /*!
 	\file
 	\brief Алгоритм CRC-8.
-	\authors Близнец Р.А.
+	\authors Близнец Р.А. (r.bliznets@gmail.com)
 	\version 1.0.1.0
 	\date 10.03.2017
 */
@@ -9,6 +9,7 @@
 #include "CCRC8.h"
 #include "esp_attr.h"
 
+// Условная компиляция: размещение таблицы в RAM или FLASH
 #ifdef CONFIG_CRC_IN_RAM
 DRAM_ATTR
 #endif
@@ -30,30 +31,57 @@ const uint8_t CCRC8::CRCTable[256] =
 	 0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB, 0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
 	 0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3};
 
+/**
+ * @brief Проверка CRC-8 для массива данных
+ * @param data Указатель на данные для проверки
+ * @param size Размер данных в байтах
+ * @return true если CRC корректна (равна 0), false если данные повреждены
+ * 
+ * Функция вычисляет CRC-8 для переданных данных и сравнивает результат с ожидаемым значением.
+ * Используется полином CRC-8 и начальное значение 0xFF.
+ */
 #ifdef CONFIG_CRC_IN_RAM
 bool IRAM_ATTR CCRC8::Check(uint8_t *data, uint16_t size)
 #else
 bool CCRC8::Check(uint8_t *data, uint16_t size)
 #endif
 {
-	uint8_t crc = 0xff;
+	uint8_t crc = 0xff; // Начальное значение CRC
+	
+	// Вычисляем CRC для всех байт данных
 	for (uint16_t i = 0; i < size; i++)
 	{
+		// Используем таблицу для быстрого вычисления CRC
+		// XOR текущего байта данных с текущим значением CRC
 		crc = CRCTable[data[i] ^ crc];
 	}
+	
+	// При корректных данных CRC должен быть равен 0
 	return (crc == 0);
 }
 
+/**
+ * @brief Создание CRC-8 для массива данных
+ * @param data Указатель на данные для вычисления CRC
+ * @param size Размер данных в байтах
+ * @param crc Указатель на переменную для сохранения результата CRC
+ * 
+ * Функция вычисляет CRC-8 для переданных данных и сохраняет результат.
+ * Используется полином CRC-8 и начальное значение 0xFF.
+ */
 #ifdef CONFIG_CRC_IN_RAM
 void IRAM_ATTR CCRC8::Create(uint8_t *data, uint16_t size, uint8_t *crc)
 #else
 void CCRC8::Create(uint8_t *data, uint16_t size, uint8_t *crc)
 #endif
 {
-	*crc = 0xff;
+	*crc = 0xff; // Устанавливаем начальное значение CRC
 
+	// Вычисляем CRC для всех байт данных
 	for (uint16_t i = 0; i < size; i++)
 	{
+		// Используем таблицу для быстрого вычисления CRC
+		// XOR текущего байта данных с текущим значением CRC
 		*crc = CRCTable[data[i] ^ (*crc)];
 	}
 }

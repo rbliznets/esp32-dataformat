@@ -392,6 +392,8 @@ void CSpiffsSystem::command(json &cmd, json &answer)
     if (cmd.contains("spiffs") && cmd["spiffs"].is_object())
     {
         answer["spiffs"] = json::object();
+        
+        // Команда получения списка файлов в директории
         if (cmd["spiffs"].contains("ls") && cmd["spiffs"]["ls"].is_string())
         {
             std::string fname = cmd["spiffs"]["ls"].template get<std::string>();
@@ -400,6 +402,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
 
             int offset = 0;
             int count = -1;
+            // Получение параметров пагинации
             if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
             {
                 offset = cmd["spiffs"]["offset"].template get<int>();
@@ -454,6 +457,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                                 fl["name"] = entry->d_name;
                                 fl["size"] = sz;
 #if (CONFIG_SPIFFS_USE_MTIME == 1)
+                                char tmp[32];
                                 strftime(tmp, 32, "%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
                                 fl["modify"] = tmp;
 #endif
@@ -498,6 +502,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 }
             }
         }
+        // Команда чтения бинарного файла
         else if (cmd["spiffs"].contains("rd") && cmd["spiffs"]["rd"].is_string())
         {
             std::string fname = cmd["spiffs"]["rd"].template get<std::string>();
@@ -513,6 +518,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             {
                 answer["spiffs"]["fr"] = fname;
                 int offset = 0;
+                // Получение параметров чтения
                 if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
                 {
                     offset = cmd["spiffs"]["offset"].template get<int>();
@@ -530,12 +536,12 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 uint8_t *data = new uint8_t[size];
                 str = "";
 
-                // Чтение данных
+                // Чтение данных с указанного смещения
                 std::fseek(f, offset, SEEK_SET);
                 size = std::fread(data, 1, size, f);
                 std::fclose(f);
 
-                // Преобразование в HEX
+                // Преобразование бинарных данных в HEX-строку
                 char tmp[4];
                 for (size_t i = 0; i < size; i++)
                 {
@@ -546,6 +552,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["data"] = str;
             }
         }
+        // Команда удаления файла
         else if (cmd["spiffs"].contains("rm") && cmd["spiffs"]["rm"].is_string())
         {
             std::string fname = cmd["spiffs"]["rm"].template get<std::string>();
@@ -563,6 +570,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             writeEvent(false);
             answer["spiffs"]["fd"] = fname;
         }
+        // Команда управления транзакциями
         else if (cmd["spiffs"].contains("trans") && cmd["spiffs"]["trans"].is_string())
         {
             std::string fname = cmd["spiffs"]["trans"].template get<std::string>();
@@ -589,6 +597,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["error"] = "Wrong transaction command: " + fname;
             }
         }
+        // Команда переименования файла
         else if (cmd["spiffs"].contains("old") && cmd["spiffs"]["old"].is_string() && cmd["spiffs"].contains("new") && cmd["spiffs"]["new"].is_string())
         {
             std::string fname = cmd["spiffs"]["old"].template get<std::string>();
@@ -643,6 +652,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["error"] = "Failed to rename file " + fname + " to " + fname2;
             }
         }
+        // Команда записи бинарных данных в файл
         else if (cmd["spiffs"].contains("wr") && cmd["spiffs"]["wr"].is_string())
         {
             std::string fname = cmd["spiffs"]["wr"].template get<std::string>();
@@ -651,6 +661,8 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             {
                 std::string hexString = cmd["spiffs"]["data"].template get<std::string>();
                 std::vector<uint8_t> data(hexString.length() / 2);
+                
+                // Преобразование HEX-строки в бинарные данные
                 for (size_t i = 0; i < hexString.length(); i += 2)
                 {
                     std::string byteStr = hexString.substr(i, 2);
@@ -684,11 +696,13 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 {
                     int offset = 0;
                     long fsize = std::ftell(f);
+                    // Получение параметров записи
                     if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
                     {
                         offset = cmd["spiffs"]["offset"].template get<int>();
                     }
 
+                    // Обрезка файла при необходимости
                     if (offset < fsize)
                     {
                         std::fclose(f);
@@ -698,6 +712,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                         answer["spiffs"]["rewrite"] = true;
                     }
 
+                    // Проверка корректности смещения
                     if (offset != fsize)
                     {
                         ESP_LOGW(TAG, "Wrong offset of file %s(%d)", fname.c_str(), offset);
@@ -705,6 +720,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     }
                     else
                     {
+                        // Запись данных в файл
                         if (std::fwrite(data.data(), 1, data.size(), f) != data.size())
                         {
                             ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), data.size());
@@ -729,6 +745,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["error"] = "No data to write for " + fname;
             }
         }
+        // Команда создания текстового файла
         else if (cmd["spiffs"].contains("ct") && cmd["spiffs"]["ct"].is_string() && cmd["spiffs"].contains("text") && cmd["spiffs"]["text"].is_string())
         {
             std::string fname = cmd["spiffs"]["ct"].template get<std::string>();
@@ -745,6 +762,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             }
             else
             {
+                // Запись текста в файл
                 if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
                 {
                     ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
@@ -759,6 +777,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 writeEvent(false);
             }
         }
+        // Команда добавления текста в конец файла
         else if (cmd["spiffs"].contains("at") && cmd["spiffs"]["at"].is_string() && cmd["spiffs"].contains("text") && cmd["spiffs"]["text"].is_string())
         {
             std::string fname = cmd["spiffs"]["at"].template get<std::string>();
@@ -775,6 +794,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             }
             else
             {
+                // Добавление текста в конец файла
                 if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
                 {
                     ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
@@ -789,6 +809,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 writeEvent(false);
             }
         }
+        // Команда чтения текстового файла
         else if (cmd["spiffs"].contains("rt") && cmd["spiffs"]["rt"].is_string())
         {
             std::string fname = cmd["spiffs"]["rt"].template get<std::string>();
@@ -804,6 +825,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             {
                 answer["spiffs"]["tr"] = fname;
                 int offset = 0;
+                // Получение параметров чтения
                 if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
                 {
                     offset = cmd["spiffs"]["offset"].template get<int>();
@@ -818,7 +840,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     size = cmd["spiffs"]["size"].template get<int>();
                 }
                 uint8_t *data = new uint8_t[size + 1];
-                // Чтение текста
+                // Чтение текста с указанного смещения
                 std::fseek(f, offset, SEEK_SET);
                 size = std::fread(data, 1, size, f);
                 std::fclose(f);
@@ -830,551 +852,4 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             }
         }
     }
-}
-
-/*!
- * @brief Обработка команд JSON для SPIFFS
- * @param cmd JSON-объект с командой в корне файловой системы
- * @return JSON-строка с ответом (без обрамления {}) или пустая строка при ошибке
- *
- * Обрабатывает следующие команды:
- * - ls: Получение списка файлов в директории
- * - rd: Чтение содержимого файла
- * - rm: Удаление файла
- * - trans: Управление транзакциями (end/cancel)
- * - old/new: Переименование файла
- * - wr: Дозапись данных в файл
- * - ct: Создание файла с текстом
- * - at: Добавление текста в конец файла
- * - rt: Чтение текстового файла
- *
- * \note Все операции с файлами обёрнуты в writeEvent() для синхронизации
- * \warning Не обрабатывает рекурсивные операции с подкаталогами
- */
-std::string CSpiffsSystem::command(CJsonParser *cmd)
-{
-    std::string answer = "";
-    char tmp[32];
-    int t2;
-
-    // Проверка наличия основного ключа "spiffs"
-    if (cmd->getObject(1, "spiffs", t2))
-    {
-        std::string fname;
-        std::string fname2;
-
-        /*!
-         * @brief Команда ls - Получение списка файлов в директории
-         *
-         * Параметры:
-         * - root: Корневая директория (по умолчанию "/")
-         * - offset: Смещение для пагинации
-         * - count: Количество элементов на странице
-         *
-         * Формат ответа:
-         * {
-         *   "spiffs": {
-         *     "root": "...",
-         *     "files": [...],
-         *     ...
-         *   }
-         * }
-         */
-        if (cmd->getString(t2, "ls", fname))
-        {
-            answer = "\"spiffs\":{";
-            answer += "\"root\":\"" + fname + "\"";
-            fname2 = "/spiffs";
-            int offset = 0;
-            int count = -1;
-            cmd->getInt(t2, "offset", offset);
-            cmd->getInt(t2, "count", count);
-
-            // Формирование полного пути
-            if (fname != "")
-                fname2 += "/" + fname;
-
-            struct dirent *entry;
-            DIR *dp;
-            std::map<std::string, uint32_t> dirs;
-            writeEvent(true); // Блокировка файловой системы
-
-            // Открытие директории
-            dp = opendir(fname2.c_str());
-            if (dp == nullptr)
-            {
-                writeEvent(false);
-                ESP_LOGE(TAG, "Failed to open dir %s", fname2.c_str());
-                answer += ",\"error\":\"Failed to open dir " + fname2 + "\"";
-            }
-            else
-            {
-                fname2 += "/";
-                answer += ",\"files\":[";
-                bool point = false;
-
-                // Сканирование содержимого директории
-                while ((entry = readdir(dp)))
-                {
-                    char *result;
-                    if ((result = std::strchr(entry->d_name, '/')) == nullptr)
-                    {
-                        offset--;
-                        if (offset < 0)
-                        {
-                            if (count != 0)
-                            {
-                                count--;
-                                struct stat buf;
-                                int res = stat((fname2 + entry->d_name).c_str(), &buf);
-                                int32_t sz = -1;
-                                if (res == 0)
-                                {
-                                    sz = buf.st_size;
-                                }
-                                if (point)
-                                    answer += ',';
-                                else
-                                    point = true;
-#if (CONFIG_SPIFFS_USE_MTIME == 1)
-                                strftime(tmp, 32, "%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
-                                answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + ",\"modify\":\"" + tmp + "\"}";
-#else
-                                answer = answer + "{\"name\":\"" + entry->d_name + "\",\"size\":" + std::to_string(sz) + "}";
-#endif
-                            }
-                        }
-                    }
-                    else
-                    {
-                        *result = 0;
-                        fname = std::string(entry->d_name);
-                        if (!dirs.contains(fname))
-                        {
-                            dirs[fname] = 1;
-                        }
-                        else
-                        {
-                            dirs[fname]++;
-                        }
-                    }
-                }
-                closedir(dp);
-                writeEvent(false); // Разблокировка файловой системы
-
-                // Добавление информации о подкаталогах
-                for (const auto &[key, value] : dirs)
-                {
-                    offset--;
-                    if (offset < 0)
-                    {
-                        if (count != 0)
-                        {
-                            count--;
-                            if (point)
-                                answer += ',';
-                            else
-                                point = true;
-                            answer = answer + "{\"name\":\"" + key + "\",\"count\":" + std::to_string(value) + "}";
-                        }
-                        else
-                            break;
-                    }
-                }
-                answer += ']';
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда rd - Чтение содержимого файла
-         *
-         * Параметры:
-         * - file: Имя файла
-         * - offset: Смещение для чтения
-         * - size: Количество байт для чтения
-         *
-         * Формат ответа:
-         * {
-         *   "spiffs": {
-         *     "fr": "файл",
-         *     "offset": ...,
-         *     "data": "..."
-         *   }
-         * }
-         */
-        else if (cmd->getString(t2, "rd", fname))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            FILE *f = std::fopen(str.c_str(), "r");
-
-            if (f == nullptr)
-            {
-                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
-                answer += "\"error\":\"Failed to open file " + fname + "\"";
-            }
-            else
-            {
-                answer += "\"fr\":\"" + fname + "\",";
-                int offset = 0;
-                cmd->getInt(t2, "offset", offset);
-                if (offset != 0)
-                {
-                    answer += "\"offset\":" + std::to_string(offset) + ",";
-                }
-                answer += "\"data\":\"";
-                int size = CONFIG_DATAFORMAT_DEFAULT_DATA_SIZE / 2;
-                cmd->getInt(t2, "size", size);
-                uint8_t *data = new uint8_t[size];
-
-                // Чтение данных
-                std::fseek(f, offset, SEEK_SET);
-                size = std::fread(data, 1, size, f);
-                std::fclose(f);
-
-                // Преобразование в HEX
-                for (size_t i = 0; i < size; i++)
-                {
-                    std::sprintf(tmp, "%02x", data[i]);
-                    answer += tmp;
-                }
-                delete[] data;
-                answer += "\"";
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда rm - Удаление файла
-         *
-         * Параметры:
-         * - file: Имя файла
-         *
-         * Формат ответа:
-         * {
-         *   "spiffs": {
-         *     "fd": "файл",
-         *     ...
-         *   }
-         * }
-         */
-        else if (cmd->getString(t2, "rm", fname))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            writeEvent(true);
-
-            if (std::filesystem::exists(str.c_str()))
-            {
-                std::remove(str.c_str());
-                writeEvent(false);
-                answer += "\"fd\":\"" + fname + "\"}";
-            }
-            else
-            {
-                writeEvent(false);
-                answer += "\"waring\":\"File do not exist\",\"fd\":\"" + fname + "\"}";
-            }
-        }
-
-        /*!
-         * @brief Команда trans - Управление транзакциями
-         *
-         * Параметры:
-         * - end: Завершение транзакции
-         * - cancel: Отмена транзакции
-         *
-         * \note Использует маркер "$" для управления транзакциями
-         */
-        else if (cmd->getString(t2, "trans", fname))
-        {
-            answer = "\"spiffs\":{";
-            if (fname == "end")
-            {
-                writeEvent(true);
-                FILE *f = std::fopen("/spiffs/$", "w");
-                std::fclose(f);
-                endTransaction();
-                writeEvent(false);
-                answer += "\"trans\":\"end\"";
-            }
-            else if (fname == "cancel")
-            {
-                writeEvent(true);
-                std::remove("/spiffs/$");
-                endTransaction();
-                writeEvent(false);
-                answer += "\"trans\":\"cancel\"";
-            }
-            else
-            {
-                answer += "\"error\":\"Wrong transaction command: " + fname + "\"";
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда old/new - Переименование файла
-         *
-         * Параметры:
-         * - old: Старое имя файла
-         * - new: Новое имя файла
-         *
-         * \warning Не обрабатывает переименование в существующий файл
-         */
-        else if ((cmd->getString(t2, "old", fname)) && (cmd->getString(t2, "new", fname2)))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            std::string str2 = "/spiffs/" + fname2;
-            writeEvent(true);
-
-            if (std::filesystem::exists(str.c_str()))
-            {
-                if (std::filesystem::exists(str2.c_str()))
-                {
-                    std::remove(str2.c_str());
-                    if (std::rename(str.c_str(), str2.c_str()) != 0)
-                    {
-                        writeEvent(false);
-                        ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
-                        answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
-                    }
-                    else
-                    {
-                        writeEvent(false);
-                        answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
-                    }
-                }
-                else
-                {
-                    if (std::rename(str.c_str(), str2.c_str()) != 0)
-                    {
-                        writeEvent(false);
-                        ESP_LOGW(TAG, "Failed to rename file %s to %s", fname.c_str(), fname2.c_str());
-                        answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
-                    }
-                    else
-                    {
-                        writeEvent(false);
-                        answer += "\"fold\":\"" + fname + "\",\"fnew\":\"" + fname2 + "\"";
-                    }
-                }
-            }
-            else if (std::filesystem::exists(str2.c_str()))
-            {
-                writeEvent(false);
-                answer += "\"waring\":\"Old file do not exist\",\"fnew\":\"" + fname2 + "\"";
-            }
-            else
-            {
-                writeEvent(false);
-                answer += "\"error\":\"Failed to rename file " + fname + " to " + fname2 + "\"";
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда wr - Дозапись данных в файл
-         *
-         * Параметры:
-         * - file: Имя файла
-         * - offset: Смещение для записи
-         * - data: Данные для записи
-         *
-         * \warning Не обеспечивает атомарность при сбоях питания
-         */
-        else if (cmd->getString(t2, "wr", fname))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            writeEvent(true);
-            FILE *f = std::fopen(str.c_str(), "a");
-
-            if (f == nullptr)
-            {
-                writeEvent(false);
-                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
-                answer += "\"error\":\"Failed to open file " + fname + "\"";
-            }
-            else
-            {
-                int offset = 0;
-                long fsize = std::ftell(f);
-                std::vector<uint8_t> *data;
-                cmd->getInt(t2, "offset", offset);
-
-                if (offset < fsize)
-                {
-                    std::fclose(f);
-                    truncate(str.c_str(), offset);
-                    f = std::fopen(str.c_str(), "a");
-                    fsize = offset;
-                    answer += "\"rewrite\":true,";
-                }
-
-                if (offset != fsize)
-                {
-                    ESP_LOGW(TAG, "Wrong offset of file %s(%d)", fname.c_str(), offset);
-                    answer += "\"error\":\"Wrong offset of file " + fname + "(" + std::to_string(fsize) + ")\"";
-                }
-                else if (cmd->getBytes(t2, "data", data))
-                {
-                    if (std::fwrite(data->data(), 1, data->size(), f) != data->size())
-                    {
-                        ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), data->size());
-                        answer += "\"error\":\"Failed to write to file " + fname + "\"";
-                    }
-                    else
-                    {
-                        answer += "\"fw\":\"" + fname + "\",";
-                        if (offset != 0)
-                        {
-                            answer += "\"offset\":" + std::to_string(offset) + ",";
-                        }
-                        answer += "\"size\":" + std::to_string(data->size());
-                    }
-                    delete data;
-                }
-                else
-                {
-                    answer += "\"error\":\"No data to write for " + fname + "\"";
-                }
-                std::fclose(f);
-                writeEvent(false);
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда ct - Создание файла с текстом
-         *
-         * Параметры:
-         * - file: Имя файла
-         * - text: Текст для записи
-         *
-         * \warning Записывает только текст без преобразования
-         */
-        else if (cmd->getString(t2, "ct", fname) && (cmd->getString(t2, "text", fname2)))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            writeEvent(true);
-            FILE *f = std::fopen(str.c_str(), "w");
-
-            if (f == nullptr)
-            {
-                writeEvent(false);
-                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
-                answer += "\"error\":\"Failed to open file " + fname + "\"";
-            }
-            else
-            {
-                if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
-                {
-                    ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
-                    answer += "\"error\":\"Failed to write to file " + fname + "\"";
-                }
-                else
-                {
-                    answer += "\"tc\":\"" + fname + "\",";
-                    answer += "\"size\":" + std::to_string(std::ftell(f));
-                }
-                std::fclose(f);
-                writeEvent(false);
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда at - Добавление текста в конец файла
-         *
-         * Параметры:
-         * - file: Имя файла
-         * - text: Текст для добавления
-         *
-         * \note Использует режим "a" для дозаписи
-         */
-        else if (cmd->getString(t2, "at", fname) && (cmd->getString(t2, "text", fname2)))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            writeEvent(true);
-            FILE *f = std::fopen(str.c_str(), "a");
-
-            if (f == nullptr)
-            {
-                writeEvent(false);
-                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
-                answer += "\"error\":\"Failed to open file " + fname + "\"";
-            }
-            else
-            {
-                if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
-                {
-                    ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
-                    answer += "\"error\":\"Failed to write to file " + fname + "\"";
-                }
-                else
-                {
-                    answer += "\"ta\":\"" + fname + "\",";
-                    answer += "\"size\":" + std::to_string(std::ftell(f));
-                }
-                std::fclose(f);
-                writeEvent(false);
-            }
-            answer += '}';
-        }
-
-        /*!
-         * @brief Команда rt - Чтение текстового файла
-         *
-         * Параметры:
-         * - file: Имя файла
-         * - offset: Смещение для чтения
-         * - size: Количество байт для чтения
-         *
-         * \note Возвращает текст как строку
-         */
-        else if (cmd->getString(t2, "rt", fname))
-        {
-            answer = "\"spiffs\":{";
-            std::string str = "/spiffs/" + fname;
-            FILE *f = std::fopen(str.c_str(), "r");
-
-            if (f == nullptr)
-            {
-                ESP_LOGW(TAG, "Failed to open file %s", fname.c_str());
-                answer += "\"error\":\"Failed to open file " + fname + "\"";
-            }
-            else
-            {
-                answer += "\"tr\":\"" + fname + "\",";
-                int offset = 0;
-                cmd->getInt(t2, "offset", offset);
-                if (offset != 0)
-                {
-                    answer += "\"offset\":" + std::to_string(offset) + ",";
-                }
-                answer += "\"text\":\"";
-                int size = CONFIG_DATAFORMAT_DEFAULT_DATA_SIZE;
-                cmd->getInt(t2, "size", size);
-                uint8_t *data = new uint8_t[size + 1];
-
-                // Чтение текста
-                std::fseek(f, offset, SEEK_SET);
-                size = std::fread(data, 1, size, f);
-                std::fclose(f);
-                data[size] = 0;
-
-                std::string str((const char *)data);
-                CJsonParser::updateString(str);
-                answer += str + "\"";
-                delete[] data;
-            }
-            answer += '}';
-        }
-    }
-    return answer;
 }
