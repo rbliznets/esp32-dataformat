@@ -270,6 +270,28 @@ bool CSpiffsSystem::endTransaction()
             {
                 std::string fname = entry->d_name;
 
+                // Обработка файлов с суффиксом ! (удаление)
+                if ((fname.length() > 1) && (fname[fname.length() - 1] == '!'))
+                {
+                    std::string fname2 = fname.substr(0, fname.length() - 1);
+
+                    // Удаление оригинального файла
+                    std::remove((str + fname2).c_str());
+                    // ESP_LOGI(TAG, "remove file %s", fname2.c_str());
+
+                    // Удаление временного файла
+                    if (std::remove((str + fname).c_str()) != 0)
+                    {
+                        ESP_LOGE(TAG, "Failed to remove file %s",
+                                 fname.c_str());
+                    }
+                }
+            }
+            closedir(dp);
+            dp = opendir("/spiffs");
+            while ((entry = readdir(dp)))
+            {
+                std::string fname = entry->d_name;
                 // Обработка файлов с суффиксом $ (переименование)
                 if ((fname.length() > 1) && (fname[fname.length() - 1] == '$'))
                 {
@@ -283,21 +305,6 @@ bool CSpiffsSystem::endTransaction()
                     {
                         ESP_LOGE(TAG, "Failed to rename file %s to %s",
                                  fname.c_str(), fname2.c_str());
-                    }
-                }
-                // Обработка файлов с суффиксом ! (удаление)
-                else if (fname[fname.length() - 1] == '!')
-                {
-                    std::string fname2 = fname.substr(0, fname.length() - 1);
-
-                    // Удаление оригинального файла
-                    std::remove((str + fname2).c_str());
-
-                    // Удаление временного файла
-                    if (std::remove((str + fname).c_str()) != 0)
-                    {
-                        ESP_LOGE(TAG, "Failed to remove file %s",
-                                 fname.c_str());
                     }
                 }
             }
@@ -369,6 +376,49 @@ bool CSpiffsSystem::writeBuffer(const char *fileName, uint8_t *data, uint32_t si
     }
 }
 
+/**
+ * @brief Очищает содержимое файлов в указанной директории (при окончании транзакции)
+ *
+ * Функция открывает все файлы в директории и маркирует их для стирания при завершении транзакции.
+ * Файлы с расширениями '!' и '$' игнорируются (считаются служебными).
+ *
+ * @param dirName Путь к директории, содержимое файлов которой нужно очистить
+ * @return uint16_t Количество успешно очищенных файлов
+ */
+uint16_t CSpiffsSystem::clearDir(const char *dirName)
+{
+    uint16_t res = 0;     // Счетчик успешно очищенных файлов
+    struct dirent *entry; // Указатель на элемент директории
+    DIR *dp;              // Указатель на дескриптор директории
+
+    writeEvent(true); // Сигнал начала операции записи
+
+    dp = opendir(dirName); // Открываем директорию для чтения
+    if (dp != nullptr)
+    {
+        while ((entry = readdir(dp)))
+        {
+            std::string str = entry->d_name;
+            // Проверяем, что имя файла длиннее 1 символа и не заканчивается на '!' или '$'
+            if ((str.length() > 1) && (str[str.length() - 1] != '!') && (str[str.length() - 1] != '$'))
+            {
+                std::string fname = dirName;
+                fname += "/" + str + "!";
+                FILE *f = std::fopen(fname.c_str(), "w"); // Открываем файл в режиме записи (усекает файл до 0 байт)
+                if (f != nullptr)
+                {
+                    std::fclose(f); // Закрываем файл
+                    res++;          // Увеличиваем счетчик очищенных файлов
+                }
+            }
+        }
+        closedir(dp); // Закрываем директорию после чтения
+    }
+
+    writeEvent(false); // Сигнал окончания операции записи
+    return res;        // Возвращаем количество успешно очищенных файлов
+}
+
 /*!
  * @brief Обработка команд JSON для SPIFFS
  * @param cmd JSON-объект с командой в корне файловой системы
@@ -392,7 +442,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
     if (cmd.contains("spiffs") && cmd["spiffs"].is_object())
     {
         answer["spiffs"] = json::object();
-        
+
         // Команда получения списка файлов в директории
         if (cmd["spiffs"].contains("ls") && cmd["spiffs"]["ls"].is_string())
         {
@@ -661,7 +711,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             {
                 std::string hexString = cmd["spiffs"]["data"].template get<std::string>();
                 std::vector<uint8_t> data(hexString.length() / 2);
-                
+
                 // Преобразование HEX-строки в бинарные данные
                 for (size_t i = 0; i < hexString.length(); i += 2)
                 {
