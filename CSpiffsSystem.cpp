@@ -396,9 +396,24 @@ uint16_t CSpiffsSystem::clearDir(const char *dirName)
     dp = opendir(dirName); // Открываем директорию для чтения
     if (dp != nullptr)
     {
+        std::list<std::string> transFiles;
         while ((entry = readdir(dp)))
         {
             std::string str = entry->d_name;
+            if ((str.length() > 1) && (str[str.length() - 1] == '$'))
+            {
+                transFiles.push_back(str.substr(0, str.length() - 1));
+            }
+        }
+        closedir(dp);
+        dp = opendir(dirName);
+        while ((entry = readdir(dp)))
+        {
+            std::string str = entry->d_name;
+            auto it = std::find(transFiles.begin(), transFiles.end(), str);
+            if (it == transFiles.end())
+                continue;
+
             // Проверяем, что имя файла длиннее 1 символа и не заканчивается на '!' или '$'
             if ((str.length() > 1) && (str[str.length() - 1] != '!') && (str[str.length() - 1] != '$'))
             {
