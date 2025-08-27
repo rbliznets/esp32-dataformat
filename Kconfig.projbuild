@@ -1,12 +1,5 @@
 menu "Data Format"
 
-    config JSON_MIN_TOKEN_SIZE
-        int "Default minimum depth"
-        range 2 50
-        default 25
-        help
-			Default JSON minimum depth
-
     config DATAFORMAT_BUFFERS_INPSRAM
         depends on SPIRAM
         bool "Set buffers in SPIRAM."
