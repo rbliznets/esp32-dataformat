@@ -411,7 +411,7 @@ uint16_t CSpiffsSystem::clearDir(const char *dirName)
         {
             std::string str = entry->d_name;
             auto it = std::find(transFiles.begin(), transFiles.end(), str);
-            if (it == transFiles.end())
+            if (it != transFiles.end())
                 continue;
 
             // Проверяем, что имя файла длиннее 1 символа и не заканчивается на '!' или '$'
