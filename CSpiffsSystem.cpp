@@ -391,7 +391,7 @@ uint16_t CSpiffsSystem::clearDir(const char *dirName)
     struct dirent *entry; // Указатель на элемент директории
     DIR *dp;              // Указатель на дескриптор директории
 
-    writeEvent(true); // Сигнал начала операции записи
+    // writeEvent(true); // Сигнал начала операции записи
 
     dp = opendir(dirName); // Открываем директорию для чтения
     if (dp != nullptr)
@@ -430,7 +430,7 @@ uint16_t CSpiffsSystem::clearDir(const char *dirName)
         closedir(dp); // Закрываем директорию после чтения
     }
 
-    writeEvent(false); // Сигнал окончания операции записи
+    // writeEvent(false); // Сигнал окончания операции записи
     return res;        // Возвращаем количество успешно очищенных файлов
 }
 
@@ -643,6 +643,19 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             if (fname == "end")
             {
                 writeEvent(true);
+                if (cmd["spiffs"].contains("clear") && cmd["spiffs"]["clear"].is_array())
+                {
+                    for (auto &x : cmd["spiffs"]["clear"].items())
+                    {
+                        json j = x.value();
+                        if(j.is_string())
+                        {
+                            std::string str = "/spiffs/";
+                            str += j.template get<std::string>();
+                            clearDir(str.c_str());
+                        }
+                    }
+                }
                 FILE *f = std::fopen("/spiffs/$", "w");
                 std::fclose(f);
                 endTransaction();
