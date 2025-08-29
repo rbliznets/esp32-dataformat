@@ -645,13 +645,12 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 writeEvent(true);
                 if (cmd["spiffs"].contains("clear") && cmd["spiffs"]["clear"].is_array())
                 {
-                    for (auto &x : cmd["spiffs"]["clear"].items())
+                    for (auto &[key, val] : cmd["spiffs"]["clear"].items())
                     {
-                        json j = x.value();
-                        if(j.is_string())
+                        if(val.is_string())
                         {
                             std::string str = "/spiffs/";
-                            str += j.template get<std::string>();
+                            str += val.template get<std::string>();
                             clearDir(str.c_str());
                         }
                     }
