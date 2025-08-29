@@ -18,5 +18,17 @@ menu "Data Format"
         default y
         help
             Speed up.
-                
+
+    config CBOR_BINARY_FIELD
+        bool "CBOR binary"
+        default y
+        help
+            CBOR binary for reducing data.
+
+    config CBOR_BINARY_FIELD_NAME
+        depends on CBOR_BINARY_FIELD
+        string "CBOR binary field"
+        default "data"
+        help
+            This option defines the name of the json field for binary cbor field.
 endmenu
