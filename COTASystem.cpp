@@ -1,7 +1,7 @@
 /*!
     \file
-    \brief Класс для работы с обновлением firmware.
-    \authors Близнец Р.А. (r.bliznets@gmail.com)
+    \brief Class for working with firmware update.
+    \authors Bliznets R.A. (r.bliznets@gmail.com)
     \version 1.0.0.0
     \date 27.04.2025
 */
@@ -10,15 +10,15 @@
 #include "esp_log.h"
 #include <string.h>
 
-static const char *TAG = "ota"; ///< Тег для логирования
+static const char *TAG = "ota"; ///< Tag for logging
 
-std::list<onOTAWork *> COTASystem::mWriteQueue; ///< Очередь callback-функций для уведомления о процессе OTA
+std::list<onOTAWork *> COTASystem::mWriteQueue; ///< Queue of callback functions for OTA process notifications
 
 /**
- * @brief Вызов всех callback-функций из очереди
- * @param lock Флаг блокировки (true - начало OTA, false - завершение OTA)
- * 
- * Функция уведомляет все зарегистрированные callback-функции о начале или завершении процесса OTA.
+ * @brief Call all callback functions from queue
+ * @param lock Lock flag (true - OTA start, false - OTA end)
+ *
+ * Function notifies all registered callback functions about OTA process start or end.
  */
 void COTASystem::writeEvent(bool lock)
 {
@@ -29,10 +29,10 @@ void COTASystem::writeEvent(bool lock)
 }
 
 /**
- * @brief Добавление callback-функции в очередь уведомлений
- * @param event Указатель на callback-функцию
- * 
- * Регистрирует функцию, которая будет вызвана при начале и завершении OTA обновления.
+ * @brief Add callback function to notification queue
+ * @param event Pointer to callback function
+ *
+ * Registers function that will be called at OTA update start and end.
  */
 void COTASystem::addWriteEvent(onOTAWork *event)
 {
@@ -40,10 +40,10 @@ void COTASystem::addWriteEvent(onOTAWork *event)
 }
 
 /**
- * @brief Удаление callback-функции из очереди уведомлений
- * @param event Указатель на callback-функцию для удаления
- * 
- * Удаляет указанную функцию из очереди уведомлений OTA.
+ * @brief Remove callback function from notification queue
+ * @param event Pointer to callback function to remove
+ *
+ * Removes specified function from OTA notification queue.
  */
 void COTASystem::removeWriteEvent(onOTAWork *event)
 {
@@ -51,20 +51,20 @@ void COTASystem::removeWriteEvent(onOTAWork *event)
                   { return item == event; });
 }
 
-esp_ota_handle_t COTASystem::update_handle = 0; ///< Дескриптор текущего OTA обновления
-int COTASystem::offset = 0;                     ///< Текущее смещение в процессе записи
+esp_ota_handle_t COTASystem::update_handle = 0; ///< Handle of current OTA update
+int COTASystem::offset = 0;                     ///< Current offset during write process
 
 /**
- * @brief Инициализация OTA системы
- * @return true если требуется подтверждение firmware, false в противном случае
- * 
- * Проверяет состояние текущего раздела firmware и определяет, требуется ли подтверждение
- * нового образа после перезагрузки.
+ * @brief Initialize OTA system
+ * @return true if firmware confirmation is required, false otherwise
+ *
+ * Checks current firmware partition state and determines if new image
+ * confirmation is required after reboot.
  */
 bool COTASystem::init()
 {
     const esp_partition_t *running = esp_ota_get_running_partition();
-    ESP_LOGI(TAG, "Running partition: %s", running->label); ///< Вывод информации о текущем разделе
+    ESP_LOGI(TAG, "Running partition: %s", running->label); ///< Output current partition info
     esp_ota_img_states_t ota_state;
     if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK)
     {
@@ -74,29 +74,29 @@ bool COTASystem::init()
 }
 
 /**
- * @brief Подтверждение или откат firmware
- * @param ok true для подтверждения текущего firmware, false для отката
- * 
- * Подтверждает успешную работу нового firmware или инициирует откат к предыдущей версии.
+ * @brief Confirm or rollback firmware
+ * @param ok true to confirm current firmware, false to rollback
+ *
+ * Confirms successful operation of new firmware or initiates rollback to previous version.
  */
 void COTASystem::confirmFirmware(bool ok)
 {
     if (ok)
     {
         ESP_LOGI(TAG, "Firmware confirmed");
-        esp_ota_mark_app_valid_cancel_rollback(); // Подтверждаем текущий firmware
+        esp_ota_mark_app_valid_cancel_rollback(); // Confirm current firmware
     }
     else
     {
         ESP_LOGE(TAG, "Diagnostics failed! Start rollback to the previous version ...");
-        esp_ota_mark_app_invalid_rollback_and_reboot(); // Откатываемся к предыдущей версии
+        esp_ota_mark_app_invalid_rollback_and_reboot(); // Rollback to previous version
     }
 }
 
 /**
- * @brief Прерывание OTA обновления
- * 
- * Аварийно завершает текущий процесс OTA обновления и сбрасывает состояние.
+ * @brief Abort OTA update
+ *
+ * Emergency terminates current OTA update process and resets state.
  */
 void COTASystem::abort()
 {
@@ -109,12 +109,12 @@ void COTASystem::abort()
 }
 
 /**
- * @brief Обработка команд OTA обновления через JSON
- * @param cmd JSON-команда с параметрами OTA
- * @param answer JSON-ответ с результатами операции
- * 
- * Обрабатывает пошаговое OTA обновление через JSON команды.
- * Поддерживает режимы: "begin" (начало), "end" (завершение) и передачу данных.
+ * @brief Process OTA update commands via JSON
+ * @param cmd JSON command with OTA parameters
+ * @param answer JSON response with operation results
+ *
+ * Processes step-by-step OTA update via JSON commands.
+ * Supports modes: "begin" (start), "end" (finish) and data transfer.
  */
 void COTASystem::command(json &cmd, json &answer)
 {
@@ -125,24 +125,24 @@ void COTASystem::command(json &cmd, json &answer)
         std::string str;
         bool end = false;
 
-        // Проверяем режим работы
+        // Check operation mode
         if (cmd["ota"].contains("mode") && cmd["ota"]["mode"].is_string())
         {
             str = cmd["ota"]["mode"].template get<std::string>();
             if (str == "begin")
             {
-                abort(); // Начинаем новое обновление - прерываем предыдущее
+                abort(); // Start new update - abort previous
             }
             else if (str == "end")
             {
-                end = true; // Флаг завершения обновления
+                end = true; // End update flag
             }
         }
-        
-        // Обрабатываем данные для записи
+
+        // Process data for writing
         if (cmd["ota"].contains("data") && cmd["ota"]["data"].is_string())
         {
-            // Преобразуем HEX-строку в бинарные данные
+            // Convert HEX string to binary data
             std::string hexString = cmd["ota"]["data"].template get<std::string>();
             std::vector<uint8_t> data(hexString.length() / 2);
             for (size_t i = 0; i < hexString.length(); i += 2)
@@ -150,7 +150,7 @@ void COTASystem::command(json &cmd, json &answer)
                 std::string byteStr = hexString.substr(i, 2);
                 try
                 {
-                    // Конвертируем двухсимвольную HEX-строку в байт
+                    // Convert two-character HEX string to byte
                     uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
                     data[i >> 1] = byteValue;
                 }
@@ -165,11 +165,11 @@ void COTASystem::command(json &cmd, json &answer)
                     return;
                 }
             }
-            
-            writeEvent(true); // Уведомляем о начале записи
-            
+
+            writeEvent(true); // Notify about write start
+
             const esp_partition_t *update_partition;
-            // Инициализируем OTA обновление если это первый блок данных
+            // Initialize OTA update if this is first data block
             if (update_handle == 0)
             {
                 update_partition = esp_ota_get_next_update_partition(nullptr);
@@ -191,8 +191,8 @@ void COTASystem::command(json &cmd, json &answer)
                     return;
                 }
             }
-            
-            // Записываем данные
+
+            // Write data
             err = esp_ota_write(update_handle, (const void *)data.data(), data.size());
             if (err != ESP_OK)
             {
@@ -202,9 +202,9 @@ void COTASystem::command(json &cmd, json &answer)
                 answer["ota"]["error"] = "esp_ota_write failed";
                 return;
             }
-            offset += data.size(); // Обновляем смещение
-            
-            // Если это последний блок данных - завершаем обновление
+            offset += data.size(); // Update offset
+
+            // If this is last data block - finish update
             if (end)
             {
                 err = esp_ota_end(update_handle);
@@ -227,8 +227,8 @@ void COTASystem::command(json &cmd, json &answer)
                     update_handle = 0;
                     return;
                 }
-                
-                // Устанавливаем новый раздел как загрузочный
+
+                // Set new partition as boot partition
                 err = esp_ota_set_boot_partition(update_partition);
                 if (err != ESP_OK)
                 {
@@ -239,8 +239,8 @@ void COTASystem::command(json &cmd, json &answer)
                     update_handle = 0;
                     return;
                 }
-                
-                writeEvent(false); // Уведомляем о завершении записи
+
+                writeEvent(false); // Notify about write end
                 answer["ota"]["offset"] = offset;
                 answer["ota"]["mode"] = "end";
                 offset = 0;
@@ -248,7 +248,7 @@ void COTASystem::command(json &cmd, json &answer)
             }
             else
             {
-                writeEvent(false); // Уведомляем о завершении текущей порции записи
+                writeEvent(false); // Notify about current write portion end
                 answer["ota"]["offset"] = offset;
             }
         }
@@ -260,21 +260,21 @@ void COTASystem::command(json &cmd, json &answer)
 }
 
 /**
- * @brief Выполнение OTA обновления из буфера данных
- * @param data Указатель на буфер с firmware данными
- * @param size Размер данных в байтах
- * @return JSON-строка с результатом операции
- * 
- * Выполняет полное OTA обновление из переданного буфера данных.
- * Используется для обновления из предварительно загруженного буфера.
+ * @brief Perform OTA update from data buffer
+ * @param data Pointer to firmware data buffer
+ * @param size Data size in bytes
+ * @return JSON string with operation result
+ *
+ * Performs complete OTA update from passed data buffer.
+ * Used for update from pre-loaded buffer.
  */
 std::string COTASystem::update(uint8_t *data, uint32_t size)
 {
     std::string answer;
-    writeEvent(true); // Уведомляем о начале OTA
-    abort();          // Прерываем предыдущее обновление если есть
-    
-    // Получаем следующий доступный раздел для обновления
+    writeEvent(true); // Notify about OTA start
+    abort();          // Abort previous update if exists
+
+    // Get next available partition for update
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(nullptr);
     if (update_partition == nullptr)
     {
@@ -283,8 +283,8 @@ std::string COTASystem::update(uint8_t *data, uint32_t size)
         answer = "\"error\":\"update partition failed\"";
         return answer;
     }
-    
-    // Начинаем процесс OTA обновления
+
+    // Start OTA update process
     esp_err_t err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
     if (err != ESP_OK)
     {
@@ -295,8 +295,8 @@ std::string COTASystem::update(uint8_t *data, uint32_t size)
         answer = "\"error\":\"esp_ota_begin failed\"";
         return answer;
     }
-    
-    // Записываем все данные
+
+    // Write all data
     err = esp_ota_write(update_handle, data, size);
     if (err != ESP_OK)
     {
@@ -306,8 +306,8 @@ std::string COTASystem::update(uint8_t *data, uint32_t size)
         answer += "\"error\":\"esp_ota_write failed\"";
         return answer;
     }
-    
-    // Завершаем процесс записи
+
+    // Finish write process
     err = esp_ota_end(update_handle);
     if (err != ESP_OK)
     {
@@ -317,8 +317,8 @@ std::string COTASystem::update(uint8_t *data, uint32_t size)
         answer += "\"error\":\"esp_ota_end failed\"}";
         return answer;
     }
-    
-    // Устанавливаем новый раздел как загрузочный
+
+    // Set new partition as boot partition
     err = esp_ota_set_boot_partition(update_partition);
     if (err != ESP_OK)
     {
@@ -328,9 +328,9 @@ std::string COTASystem::update(uint8_t *data, uint32_t size)
         update_handle = 0;
         return answer;
     }
-    
-    writeEvent(false);     // Уведомляем о завершении OTA
-    update_handle = 0;     // Сбрасываем дескриптор
+
+    writeEvent(false); // Notify about OTA end
+    update_handle = 0; // Reset handle
     answer = "\"ok\":\"firmware was saved\"";
     return answer;
 }

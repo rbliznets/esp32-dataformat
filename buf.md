@@ -1,26 +1,26 @@
-# Команды для работы с буфером в памяти по 2-му каналу
-В корне json должен быть только один элемент __"buf"__. Корень json может содержать другие элементы. 
-Одновременно передаётся только одна команда, следующая только после получения ответа.
-При возникновении ошибки при обработке команды выдаётся следующий ответ:
+# Commands for working with the memory buffer via the 2nd channel
+The JSON root must contain only one element: `"buf"`. The JSON root may contain other elements.
+Only one command is transmitted at a time, the next command is only sent after receiving a response.
+If an error occurs during command processing, the following response is issued:
 ```
 {
     "buf":
     {
-        "error":"описание ошибки"
+        "error":"error description"
     }
 }
 ```
-### 1.Создать буфер.
+### 1.Create Buffer.
 ```
 {
     "buf":
     {
-        "create":1024,  // размер буфера в байтах
-        "part":200      // максимальный размер пакета в байтах (необязательное)
+        "create":1024,  // buffer size in bytes
+        "part":200      // maximum packet size in bytes (optional)
     }
 }
 ```
-Ответ
+Response
 ```
 {
     "buf":
@@ -29,31 +29,31 @@
     }
 }
 ```
-В случае успеха, можно передавать пакеты устройству по 2-му каналу.
-### 2.Создать буфер из файла.
+If successful, packets can be sent to the device via the 2nd channel.
+### 2.Create Buffer from File.
 ```
 {
     "buf":
     {
-        "rd":"udp.json",    //имя файла
-        "part":200      // максимальный размер пакета в байтах (необязательное)
+        "rd":"udp.json",    // filename
+        "part":200      // maximum packet size in bytes (optional)
     }
 }
 ```
-Ответ
+Response
 ```
 {
     "buf":
     {
-        "fr":"udp.json",    //имя файла
+        "fr":"udp.json",    // filename
         "ok":"buffer was loaded from udp.json",
-        "size":170,   // размер файла в байтах
-        "part":200    // максимальный размер пакета в байтах
+        "size":170,   // file size in bytes
+        "part":200    // maximum packet size in bytes
     }
 }
 ```
-В случае успеха, устройство начинает передавать пакеты по 2-му каналу.
-### 3.Проверить заполненность буфера.
+If successful, the device starts transmitting packets via the 2nd channel.
+### 3.Check Buffer Fill Level.
 ```
 {
     "buf":
@@ -62,26 +62,26 @@
     }
 }
 ```
-Ответ
+Response
 ```
 {
     "buf":
     {
-        "empty":[0]  // список номеров пакетов, которые нужно передать устройству
+        "empty":[0]  // list of packet numbers that need to be sent to the device
     }
 }
 ```
-### 4.Записать буфер в файл.
+### 4.Write Buffer to File.
 ```
 {
     "buf":
     {
-        "wr":"t.dat", // имя файла
-        "free":null // освободить буфер после записи 
+        "wr":"t.dat", // filename
+        "free":null // free the buffer after writing (optional)
     }
 }
 ```
-Ответ
+Response
 ```
 {
     "buf":
@@ -90,17 +90,17 @@
     }
 }
 ```
-### 5.Записать буфер как обновление прошивки.
+### 5.Write Buffer as Firmware Update.
 ```
 {
     "buf":
     {
         "ota":null, 
-        "free":null // освободить буфер после записи 
+        "free":null // free the buffer after writing (optional)
     }
 }
 ```
-Ответ
+Response
 ```
 {
     "buf":
@@ -109,7 +109,7 @@
     }
 }
 ```
-### 6. Очистить буфер.
+### 6. Clear Buffer.
 ```
 {
     "buf":
@@ -118,7 +118,7 @@
     }
 }
 ```
-Ответ
+Response
 ```
 {
     "buf":
@@ -127,5 +127,5 @@
     }
 }
 ```
-## Формат данных 2-го канала.
-Первые два байта - номер пакета, затем данные (максимальный размер пакета если не последний пакет).
+## 2nd Channel Data Format.
+The first two bytes are the packet number, followed by the data (maximum packet size if not the last packet).

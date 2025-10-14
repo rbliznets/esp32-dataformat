@@ -1,7 +1,7 @@
 /*!
 	\file
-	\brief Класс для синхронизации системного времени.
-	\authors Близнец Р.А. (r.bliznets@gmail.com)
+	\brief Class for synchronizing system time.
+	\authors Bliznets R.A. (r.bliznets@gmail.com)
 	\version 1.2.0.0
 	\date 13.09.2024
 */
@@ -15,56 +15,56 @@ using json = nlohmann::json;
 
 #include <sys/time.h>
 
-/// Статический класс для синхронизации и управления системным временем.
+/// Static class for synchronizing and managing system time.
 /*!
-  Предоставляет функции для установки, сохранения и синхронизации системного времени.
-  Поддерживает работу с NVS памятью для сохранения времени между перезагрузками.
+  Provides functions for setting, saving and synchronizing system time.
+  Supports NVS memory operations for saving time between reboots.
 */
 class CDateTimeSystem
 {
 protected:
-	static bool mSync; ///< Флаг состояния синхронизации времени (true - время синхронизировано)
+	static bool mSync; ///< Time synchronization status flag (true - time is synchronized)
 
 public:
-	/// Инициализация системного времени при запуске.
+	/// Initialize system time on startup.
 	/*!
-	  Загружает сохраненное время из NVS памяти и устанавливает системное время.
-	  Если данные отсутствуют, используется время по умолчанию.
+	  Loads saved time from NVS memory and sets system time.
+	  If data is missing, uses default time.
 	*/
 	static void init();
 
-	/// @brief Установка системного времени
-	/// @param now Время в формате UNIX timestamp (секунды с 1 января 1970 года)
-	/// @param force Устанавливать даже если время уже синхронизировано (по умолчанию false)
-	/// @param approximate Флаг неточного источника времени, проверяет монотонность (по умолчанию false)
-	/// @return true если время установлено успешно, иначе false
+	/// @brief Set system time
+	/// @param now Time in UNIX timestamp format (seconds since January 1, 1970)
+	/// @param force Set even if time is already synchronized (default false)
+	/// @param approximate Flag for imprecise time source, checks monotonicity (default false)
+	/// @return true if time set successfully, otherwise false
 	static bool setDateTime(time_t now, bool force = false, bool approximate = false);
 
-	/// @brief Запись текущего системного времени в NVS память
-	/// @return true если время успешно записано, иначе false
+	/// @brief Write current system time to NVS memory
+	/// @return true if time successfully written, otherwise false
 	static bool saveDateTime();
 
-	/// Обработка JSON-команд синхронизации времени.
+	/// Process JSON time synchronization commands.
 	/*!
-	  Обрабатывает команды синхронизации времени из JSON объекта.
-	  Поддерживаемые команды:
-	  - "epoch": установка времени по UNIX timestamp
-	  - "force": принудительное сохранение текущего времени
-	  - "approximate": приблизительная синхронизация
-	  
-	  \param[in] cmd JSON-объект с командами синхронизации времени.
-	  \param[out] answer JSON-объект с результатами выполнения команд.
-	*/
-	static void command(json& cmd, json& answer);
+	  Processes time synchronization commands from JSON object.
+	  Supported commands:
+	  - "epoch": set time by UNIX timestamp
+	  - "force": force save current time
+	  - "approximate": approximate synchronization
 
-	/// @brief Получение флага синхронизации времени
-	/// @return true если время синхронизировано, false если нет
+	  \param[in] cmd JSON object with time synchronization commands.
+	  \param[out] answer JSON object with command execution results.
+	*/
+	static void command(json &cmd, json &answer);
+
+	/// @brief Get time synchronization flag
+	/// @return true if time is synchronized, false if not
 	static inline bool isSync() { return mSync; }
 
-	/// @brief Вывод текущей даты и времени в лог
+	/// @brief Output current date and time to log
 	/*!
-	  Форматирует и выводит текущее системное время в формате YYYY-MM-DD HH:MM:SS
-	  вместе с состоянием синхронизации времени.
+	  Formats and outputs current system time in YYYY-MM-DD HH:MM:SS format
+	  along with time synchronization status.
 	*/
 	static void log();
 };

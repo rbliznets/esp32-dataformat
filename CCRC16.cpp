@@ -1,7 +1,7 @@
 /*!
 	\file
-	\brief Алгоритм CRC-16.
-	\authors Близнец Р.А. (r.bliznets@gmail.com)
+	\brief CRC-16 algorithm.
+	\authors Bliznets R.A. (r.bliznets@gmail.com)
 	\version 1.0.1.0
 	\date 10.03.2017
 */
@@ -9,7 +9,7 @@
 #include "CCRC16.h"
 #include "esp_attr.h"
 
-// Условная компиляция: размещение таблицы в RAM или FLASH
+// Conditional compilation: place table in RAM or FLASH
 #ifdef CONFIG_CRC_IN_RAM
 DRAM_ATTR
 #endif
@@ -48,13 +48,13 @@ const uint16_t CCRC16::CRCTable[256] =
 	 0x8201, 0x42c0, 0x4380, 0x8341, 0x4100, 0x81c1, 0x8081, 0x4040};
 
 /**
- * @brief Проверка CRC-16 для массива данных
- * @param data Указатель на данные для проверки
- * @param size Размер данных в байтах
- * @return true если CRC корректна (равна 0), false если данные повреждены
- * 
- * Функция вычисляет CRC-16 для переданных данных и сравнивает результат с ожидаемым значением.
- * Используется полином CRC-16 и начальное значение 0xFFFF.
+ * @brief Check CRC-16 for data array
+ * @param data Pointer to data for verification
+ * @param size Data size in bytes
+ * @return true if CRC is correct (equals 0), false if data is corrupted
+ *
+ * Function calculates CRC-16 for passed data and compares result with expected value.
+ * Uses CRC-16 polynomial and initial value 0xFFFF.
  */
 #ifdef CONFIG_CRC_IN_RAM
 bool IRAM_ATTR CCRC16::Check(uint8_t *data, uint16_t size)
@@ -62,28 +62,28 @@ bool IRAM_ATTR CCRC16::Check(uint8_t *data, uint16_t size)
 bool CCRC16::Check(uint8_t *data, uint16_t size)
 #endif
 {
-	uint16_t crc = 0xffff; // Начальное значение CRC-16
-	
-	// Вычисляем CRC для всех байт данных
+	uint16_t crc = 0xffff; // Initial CRC-16 value
+
+	// Calculate CRC for all data bytes
 	for (uint16_t i = 0; i < size; i++)
 	{
-		// Используем таблицу для быстрого вычисления CRC
-		// Младший байт CRC XOR с текущим байтом данных используется как индекс в таблице
-		// Старший байт CRC сдвигается вправо и XOR с таблицей
+		// Use table for fast CRC calculation
+		// Low byte of CRC XOR with current data byte is used as index in table
+		// High byte of CRC shifts right and XOR with table
 		crc = (uint16_t)((crc >> 8) ^ CRCTable[(data[i]) ^ ((crc) & 0x00FF)]);
 	}
-	
-	// При корректных данных CRC должен быть равен 0
+
+	// For correct data, CRC should equal 0
 	return (crc == 0);
 }
 
 /**
- * @brief Создание CRC-16 для массива данных
- * @param data Указатель на данные для вычисления CRC
- * @param size Размер данных в байтах
- * @param crc Указатель на переменную для сохранения результата CRC
- * 
- * Функция инициализирует CRC начальным значением и вычисляет контрольную сумму для данных.
+ * @brief Create CRC-16 for data array
+ * @param data Pointer to data for CRC calculation
+ * @param size Data size in bytes
+ * @param crc Pointer to variable for storing CRC result
+ *
+ * Function initializes CRC with initial value and calculates checksum for data.
  */
 #ifdef CONFIG_CRC_IN_RAM
 void IRAM_ATTR CCRC16::Create(uint8_t *data, uint16_t size, uint16_t *crc)
@@ -91,17 +91,17 @@ void IRAM_ATTR CCRC16::Create(uint8_t *data, uint16_t size, uint16_t *crc)
 void CCRC16::Create(uint8_t *data, uint16_t size, uint16_t *crc)
 #endif
 {
-	*crc = CCRC16::Init(); // Инициализируем CRC начальным значением
-	Add(data, size, crc);  // Добавляем данные к CRC
+	*crc = CCRC16::Init(); // Initialize CRC with initial value
+	Add(data, size, crc);  // Add data to CRC
 }
 
 /**
- * @brief Добавление данных к существующему CRC-16
- * @param data Указатель на данные для добавления к CRC
- * @param size Размер данных в байтах
- * @param crc Указатель на переменную с текущим значением CRC (будет обновлено)
- * 
- * Функция позволяет поэтапно вычислять CRC для больших объемов данных или потоков.
+ * @brief Add data to existing CRC-16
+ * @param data Pointer to data to add to CRC
+ * @param size Data size in bytes
+ * @param crc Pointer to variable with current CRC value (will be updated)
+ *
+ * Function allows step-by-step CRC calculation for large data volumes or streams.
  */
 #ifdef CONFIG_CRC_IN_RAM
 void IRAM_ATTR CCRC16::Add(uint8_t *data, uint16_t size, uint16_t *crc)
@@ -109,12 +109,12 @@ void IRAM_ATTR CCRC16::Add(uint8_t *data, uint16_t size, uint16_t *crc)
 void CCRC16::Add(uint8_t *data, uint16_t size, uint16_t *crc)
 #endif
 {
-	// Вычисляем CRC для всех байт данных и добавляем к существующему значению
+	// Calculate CRC for all data bytes and add to existing value
 	for (uint16_t i = 0; i < size; i++)
 	{
-		// Используем таблицу для быстрого вычисления CRC
-		// Младший байт CRC XOR с текущим байтом данных используется как индекс в таблице
-		// Старший байт CRC сдвигается вправо и XOR с таблицей
+		// Use table for fast CRC calculation
+		// Low byte of CRC XOR with current data byte is used as index in table
+		// High byte of CRC shifts right and XOR with table
 		*crc = (uint16_t)((*crc >> 8) ^ CRCTable[(data[i]) ^ ((*crc) & 0x00FF)]);
 	}
 }

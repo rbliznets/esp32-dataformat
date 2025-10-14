@@ -1,7 +1,7 @@
 /*!
 	\file
-	\brief Класс для работы с NVS.
-	\authors Близнец Р.А. (r.bliznets@gmail.com)
+	\brief Class for working with NVS.
+	\authors Bliznets R.A. (r.bliznets@gmail.com)
 	\version 1.1.0.0
 	\date 02.05.2024
 */
@@ -13,40 +13,40 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-/// Статический класс для работы с Non-Volatile Storage (NVS) памятью.
+/// Static class for working with Non-Volatile Storage (NVS) memory.
 /*!
-  Предоставляет статические методы для инициализации, работы с переменными
-  и выполнения служебных операций с NVS памятью ESP32.
-  Поддерживает работу с различными типами данных: целые числа, числа с плавающей точкой, строки.
+  Provides static methods for initialization, working with variables
+  and performing service operations with ESP32 NVS memory.
+  Supports working with various data types: integers, floating-point numbers, strings.
 */
 class CNvsSystem
 {
 public:
-	/// Инициализация NVS памяти.
+	/// Initialize NVS memory.
 	/*!
-	  Выполняет инициализацию основного раздела NVS и дополнительного раздела "nvs2".
-	  При необходимости автоматически выполняет очистку памяти если обнаружены ошибки.
-	  \return true если инициализация успешна, false в случае ошибки.
+	  Performs initialization of main NVS partition and additional "nvs2" partition.
+	  Automatically performs memory cleanup if errors are detected.
+	  \return true if initialization is successful, false in case of error.
 	*/
 	static bool init();
-	
-	/// Деинициализация NVS памяти.
+
+	/// Deinitialize NVS memory.
 	/*!
-	  Освобождает ресурсы NVS памяти и закрывает файловую систему.
-	  Вызывается перед завершением работы с NVS.
+	  Releases NVS memory resources and closes file system.
+	  Called before finishing work with NVS.
 	*/
 	static void free();
 
-	/// Обработка JSON-команд работы с NVS.
+	/// Process JSON commands for NVS operations.
 	/*!
-	  Обрабатывает команды работы с NVS памятью из JSON объекта.
-	  Поддерживаемые команды:
-	  - "clear": очистка всей NVS памяти
-	  - "reset": перезагрузка устройства
-	  - Работа с переменными различных типов (u8, i8, i16, i32, u32, float, double)
-	  
-	  \param[in] cmd JSON-объект с командами работы с NVS (ключ "nvs" в корне).
-	  \param[out] answer JSON-объект с результатами выполнения команд.
+	  Processes NVS memory commands from JSON object.
+	  Supported commands:
+	  - "clear": clear entire NVS memory
+	  - "reset": restart device
+	  - Work with variables of various types (u8, i8, i16, i32, u32, float, double)
+
+	  \param[in] cmd JSON object with NVS commands (key "nvs" at root).
+	  \param[out] answer JSON object with command execution results.
 	*/
-	static void command(json& cmd, json& answer);
+	static void command(json &cmd, json &answer);
 };

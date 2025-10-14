@@ -1,7 +1,7 @@
 /*!
 	\file
-	\brief Алгоритм CRC-8.
-	\authors Близнец Р.А. (r.bliznets@gmail.com)
+	\brief CRC-8 algorithm.
+	\authors Bliznets R.A. (r.bliznets@gmail.com)
 	\version 1.0.1.0
 	\date 10.03.2017
 */
@@ -9,7 +9,7 @@
 #include "CCRC8.h"
 #include "esp_attr.h"
 
-// Условная компиляция: размещение таблицы в RAM или FLASH
+// Conditional compilation: place table in RAM or FLASH
 #ifdef CONFIG_CRC_IN_RAM
 DRAM_ATTR
 #endif
@@ -32,13 +32,13 @@ const uint8_t CCRC8::CRCTable[256] =
 	 0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3};
 
 /**
- * @brief Проверка CRC-8 для массива данных
- * @param data Указатель на данные для проверки
- * @param size Размер данных в байтах
- * @return true если CRC корректна (равна 0), false если данные повреждены
- * 
- * Функция вычисляет CRC-8 для переданных данных и сравнивает результат с ожидаемым значением.
- * Используется полином CRC-8 и начальное значение 0xFF.
+ * @brief Check CRC-8 for data array
+ * @param data Pointer to data for verification
+ * @param size Data size in bytes
+ * @return true if CRC is correct (equals 0), false if data is corrupted
+ *
+ * Function calculates CRC-8 for passed data and compares result with expected value.
+ * Uses CRC-8 polynomial and initial value 0xFF.
  */
 #ifdef CONFIG_CRC_IN_RAM
 bool IRAM_ATTR CCRC8::Check(uint8_t *data, uint16_t size)
@@ -46,28 +46,28 @@ bool IRAM_ATTR CCRC8::Check(uint8_t *data, uint16_t size)
 bool CCRC8::Check(uint8_t *data, uint16_t size)
 #endif
 {
-	uint8_t crc = 0xff; // Начальное значение CRC
-	
-	// Вычисляем CRC для всех байт данных
+	uint8_t crc = 0xff; // Initial CRC value
+
+	// Calculate CRC for all data bytes
 	for (uint16_t i = 0; i < size; i++)
 	{
-		// Используем таблицу для быстрого вычисления CRC
-		// XOR текущего байта данных с текущим значением CRC
+		// Use table for fast CRC calculation
+		// XOR current data byte with current CRC value
 		crc = CRCTable[data[i] ^ crc];
 	}
-	
-	// При корректных данных CRC должен быть равен 0
+
+	// For correct data, CRC should equal 0
 	return (crc == 0);
 }
 
 /**
- * @brief Создание CRC-8 для массива данных
- * @param data Указатель на данные для вычисления CRC
- * @param size Размер данных в байтах
- * @param crc Указатель на переменную для сохранения результата CRC
- * 
- * Функция вычисляет CRC-8 для переданных данных и сохраняет результат.
- * Используется полином CRC-8 и начальное значение 0xFF.
+ * @brief Create CRC-8 for data array
+ * @param data Pointer to data for CRC calculation
+ * @param size Data size in bytes
+ * @param crc Pointer to variable for storing CRC result
+ *
+ * Function calculates CRC-8 for passed data and saves result.
+ * Uses CRC-8 polynomial and initial value 0xFF.
  */
 #ifdef CONFIG_CRC_IN_RAM
 void IRAM_ATTR CCRC8::Create(uint8_t *data, uint16_t size, uint8_t *crc)
@@ -75,13 +75,13 @@ void IRAM_ATTR CCRC8::Create(uint8_t *data, uint16_t size, uint8_t *crc)
 void CCRC8::Create(uint8_t *data, uint16_t size, uint8_t *crc)
 #endif
 {
-	*crc = 0xff; // Устанавливаем начальное значение CRC
+	*crc = 0xff; // Set initial CRC value
 
-	// Вычисляем CRC для всех байт данных
+	// Calculate CRC for all data bytes
 	for (uint16_t i = 0; i < size; i++)
 	{
-		// Используем таблицу для быстрого вычисления CRC
-		// XOR текущего байта данных с текущим значением CRC
+		// Use table for fast CRC calculation
+		// XOR current data byte with current CRC value
 		*crc = CRCTable[data[i] ^ (*crc)];
 	}
 }

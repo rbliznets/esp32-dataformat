@@ -1,7 +1,7 @@
 /*!
     \file
-    \brief Класс для обнаружения json строки из потока байтов.
-    \authors Близнец Р.А. (r.bliznets@gmail.com)
+    \brief Class for detecting JSON string from byte stream.
+    \authors Bliznets R.A. (r.bliznets@gmail.com)
     \version 1.0.0.0
     \date 18.04.2022
 */
@@ -13,17 +13,17 @@
 static const char *TAG = "json";
 
 /**
- * @brief Конструктор класса CJsonReadStream
- * @param max_size Максимальный размер буфера для хранения неполных JSON объектов
- * @param auto_free Флаг автоматического освобождения памяти буфера
+ * @brief Constructor for CJsonReadStream class
+ * @param max_size Maximum buffer size for storing incomplete JSON objects
+ * @param auto_free Automatic buffer memory deallocation flag
  */
 CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free) : mSize(max_size), mFree(auto_free)
 {
 }
 
 /**
- * @brief Деструктор класса CJsonReadStream
- * Освобождает память и очищает список найденных JSON строк
+ * @brief Destructor for CJsonReadStream class
+ * Frees memory and clears the list of found JSON strings
  */
 CJsonReadStream::~CJsonReadStream()
 {
@@ -32,8 +32,8 @@ CJsonReadStream::~CJsonReadStream()
 }
 
 /**
- * @brief Освобождение памяти буфера
- * Освобождает выделенную память для временного буфера хранения неполных JSON объектов
+ * @brief Free buffer memory
+ * Frees allocated memory for temporary buffer storing incomplete JSON objects
  */
 void CJsonReadStream::free()
 {
@@ -46,46 +46,46 @@ void CJsonReadStream::free()
 }
 
 /**
- * @brief Добавление данных в поток и поиск JSON объектов
- * @param data Указатель на массив байт данных
- * @param size Размер данных в байтах
- * @return true если найден незавершенный JSON объект, false если все объекты завершены
- * 
- * Функция анализирует поток байт, отслеживает баланс открывающих и закрывающих фигурных скобок
- * для выделения полных JSON объектов. Неполные объекты сохраняются во временный буфер.
+ * @brief Add data to stream and search for JSON objects
+ * @param data Pointer to byte array data
+ * @param size Data size in bytes
+ * @return true if incomplete JSON object found, false if all objects are complete
+ *
+ * Function analyzes byte stream, tracks balance of opening and closing curly braces
+ * to extract complete JSON objects. Incomplete objects are saved to temporary buffer.
  */
 bool CJsonReadStream::add(uint8_t *data, uint16_t size)
 {
-    int start = -1; // Индекс начала текущего JSON объекта в данных
+    int start = -1; // Index of current JSON object start in data
     int i;
-    
-    // Обрабатываем каждый байт данных
+
+    // Process each byte of data
     for (i = 0; i < size; i++)
     {
         if (mCount == 0)
         {
-            // Ищем начало нового JSON объекта
+            // Looking for start of new JSON object
             if (data[i] == '{')
             {
-                mCount++; // Увеличиваем счетчик скобок
-                start = i; // Запоминаем позицию начала
+                mCount++;  // Increment bracket counter
+                start = i; // Remember start position
             }
         }
         else
         {
-            // Внутри JSON объекта - отслеживаем баланс скобок
+            // Inside JSON object - track bracket balance
             if (data[i] == '{')
             {
-                mCount++; // Вложенные объекты
+                mCount++; // Nested objects
             }
             else if (data[i] == '}')
             {
-                mCount--; // Закрывающая скобка
-                
-                // Если объект завершен (баланс скобок = 0)
+                mCount--; // Closing bracket
+
+                // If object is complete (bracket balance = 0)
                 if (mCount == 0)
                 {
-                    // Выделяем буфер при необходимости
+                    // Allocate buffer if needed
                     if (mBuf == nullptr)
                     {
 #ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
@@ -95,17 +95,17 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
 #endif
                         mBufIndex = 0;
                     }
-                    
-                    // Обрабатываем завершенный JSON объект
+
+                    // Process completed JSON object
                     if (start != -1)
                     {
-                        // Объект полностью содержится в текущих данных
+                        // Object completely contained in current data
                         if ((i - start + 1) < mSize)
                         {
                             std::memcpy(mBuf, &data[start], i - start + 1);
-                            mBuf[i - start + 1] = 0; // Добавляем терминатор строки
+                            mBuf[i - start + 1] = 0; // Add string terminator
                             std::string s((char *)mBuf);
-                            mStrings.push_back(s); // Добавляем в список найденных объектов
+                            mStrings.push_back(s); // Add to list of found objects
                         }
                         else
                         {
@@ -115,32 +115,32 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                     }
                     else
                     {
-                        // Объект был начат в предыдущих данных, завершается в текущих
+                        // Object started in previous data, ends in current
                         if ((i + mBufIndex) < mSize)
                         {
                             std::memcpy(&mBuf[mBufIndex], data, i + 1);
                             mBufIndex += i + 1;
-                            mBuf[mBufIndex] = 0; // Добавляем терминатор строки
+                            mBuf[mBufIndex] = 0; // Add string terminator
                             std::string s((char *)mBuf);
-                            mStrings.push_back(s); // Добавляем в список найденных объектов
+                            mStrings.push_back(s); // Add to list of found objects
                         }
                         else
                         {
                             ESP_LOGW(TAG, "datasize %d > bufsize %d", (i + mBufIndex), mSize);
                         }
-                        mBufIndex = 0; // Сбрасываем индекс буфера
+                        mBufIndex = 0; // Reset buffer index
                     }
                 }
             }
         }
     }
 
-    // Обработка незавершенных JSON объектов
+    // Process incomplete JSON objects
     if (mCount != 0)
     {
         if (start != -1)
         {
-            // Начало объекта найдено в текущих данных
+            // Object start found in current data
             if (mBuf == nullptr)
             {
 #ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
@@ -150,8 +150,8 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
 #endif
                 mBufIndex = 0;
             }
-            
-            // Сохраняем неполные данные во временный буфер
+
+            // Save incomplete data to temporary buffer
             if ((size - start) < mSize)
             {
                 std::memcpy(mBuf, &data[start], (size - start));
@@ -160,11 +160,11 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
             else
             {
                 ESP_LOGW(TAG, "datasize %d > bufsize %d", (size - start), mSize);
-             }
+            }
         }
         else
         {
-            // Продолжение ранее начатого объекта
+            // Continuation of previously started object
             if ((size + mBufIndex) < mSize)
             {
                 std::memcpy(&mBuf[mBufIndex], data, size);
@@ -178,30 +178,30 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
     }
     else
     {
-        // Все объекты завершены - освобождаем буфер при необходимости
+        // All objects completed - free buffer if needed
         if (mFree && (mBuf != nullptr))
         {
             heap_caps_free(mBuf);
             mBuf = nullptr;
         }
     }
-    
-    return (mCount != 0); // Возвращаем true если есть незавершенные объекты
+
+    return (mCount != 0); // Return true if there are incomplete objects
 }
 
 /**
- * @brief Получение следующей найденной JSON строки
- * @param str Ссылка на строку, куда будет записан результат
- * @return true если строка получена, false если список пуст
- * 
- * Функция извлекает первую найденную JSON строку из очереди и удаляет её из списка.
+ * @brief Get next found JSON string
+ * @param str Reference to string where result will be written
+ * @return true if string obtained, false if queue is empty
+ *
+ * Function extracts first found JSON string from queue and removes it from list.
  */
 bool CJsonReadStream::get(std::string &str)
 {
     if (mStrings.size() != 0)
     {
-        str = mStrings.front(); // Получаем первую строку
-        mStrings.pop_front();   // Удаляем её из списка
+        str = mStrings.front(); // Get first string
+        mStrings.pop_front();   // Remove it from list
         return true;
     }
     else

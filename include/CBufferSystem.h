@@ -1,7 +1,7 @@
 /*!
 	\file
-	\brief Класс для работы с буфером PSRAM.
-	\authors Близнец Р.А. (r.bliznets@gmail.com)
+	\brief Class for working with PSRAM buffer.
+	\authors Bliznets R.A. (r.bliznets@gmail.com)
 	\version 1.2.0.0
 	\date 21.02.2024
 */
@@ -13,75 +13,75 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-#define BUF_PART_SIZE (200) ///< Размер части буфера по умолчанию в байтах
+#define BUF_PART_SIZE (200) ///< Default buffer part size in bytes
 
-/// @brief Класс для работы с буфером PSRAM с возможностью почастного заполнения.
+/// @brief Class for working with PSRAM buffer with partial filling capability.
 class CBufferSystem
 {
 protected:
-	uint8_t *mBuffer = nullptr;		///< Указатель на буфер данных в памяти
-	uint32_t mSize;					///< Общий размер буфера в байтах
-	uint16_t mPart = BUF_PART_SIZE; ///< Размер каждой части буфера в байтах
-	uint8_t *mParts = nullptr;		///< Массив флагов состояния частей (0 - пустая, 1 - заполненная)
-	uint16_t mLastPart;				///< Индекс последней части в массиве (нумерация с 0)
-	bool mRead = false;				///< Флаг, указывающий что буфер загружен из файла и готов к чтению
+	uint8_t *mBuffer = nullptr;		///< Pointer to data buffer in memory
+	uint32_t mSize;					///< Total buffer size in bytes
+	uint16_t mPart = BUF_PART_SIZE; ///< Size of each buffer part in bytes
+	uint8_t *mParts = nullptr;		///< Array of part status flags (0 - empty, 1 - filled)
+	uint16_t mLastPart;				///< Index of last part in array (0-based)
+	bool mRead = false;				///< Flag indicating buffer loaded from file and ready for reading
 
 	/**
 		@fn CBufferSystem::init(uint32_t size)
-		@brief Инициализирует буфер заданного размера в PSRAM или обычной памяти.
-		@param size Размер буфера в байтах для выделения памяти.
-		@return Возвращает true если инициализация прошла успешно, false в случае ошибки выделения памяти.
+		@brief Initializes buffer of specified size in PSRAM or regular memory.
+		@param size Buffer size in bytes for memory allocation.
+		@return Returns true if initialization was successful, false if memory allocation failed.
 	*/
 	bool init(uint32_t size);
 
 	/**
 	@fn CBufferSystem::free()
-	@brief Освобождает выделенную память буфера и сбрасывает все свойства класса.
+	@brief Frees allocated buffer memory and resets all class properties.
 	*/
 	void free();
 
 public:
-	/// @brief Деструктор класса CBufferSystem. Автоматически освобождает память буфера.
+	/// @brief Destructor of CBufferSystem class. Automatically frees buffer memory.
 	~CBufferSystem()
 	{
 		free();
 	};
 
-	/// Обработка JSON-команд для управления буфером.
+	/// Process JSON commands for buffer management.
 	/*!
-	  \param[in] cmd JSON-объект с командами в корне (содержит ключ "buf").
-	  \param[out] answer JSON-объект с ответом на команду.
-	  \param[out] cancel Флаг отмены операции (устанавливается в true для команды "cancel").
-	  
-	  Поддерживаемые команды:
-	  - "create": создание буфера заданного размера
-	  - "check": проверка состояния буфера и списка незаполненных частей
-	  - "wr": запись буфера в файл
-	  - "ota": выполнение OTA-обновления из буфера
-	  - "rd": чтение буфера из файла
-	  - "free": освобождение буфера
-	  - "cancel": отмена операции с освобождением буфера
-	*/
-	void command(json& cmd, json& answer, bool &cancel);
+	  \param[in] cmd JSON object with commands at root (contains key "buf").
+	  \param[out] answer JSON object with command response.
+	  \param[out] cancel Operation cancellation flag (set to true for "cancel" command).
 
-	/// Добавление данных в буфер по частям.
+	  Supported commands:
+	  - "create": create buffer of specified size
+	  - "check": check buffer status and list of unfilled parts
+	  - "wr": write buffer to file
+	  - "ota": perform OTA update from buffer
+	  - "rd": read buffer from file
+	  - "free": free buffer
+	  - "cancel": cancel operation with buffer free
+	*/
+	void command(json &cmd, json &answer, bool &cancel);
+
+	/// Add data to buffer by parts.
 	/*!
-	  \param[in] data Указатель на данные (первые 2 байта содержат номер части, остальные - данные).
-	  \param[in] size Размер данных в байтах (включая 2 байта номера части).
-	  
-	  Данные добавляются в буфер в соответствии с номером части, указанной в первых двух байтах.
-	  Каждая часть помечается как заполненная в массиве mParts.
+	  \param[in] data Pointer to data (first 2 bytes contain part number, rest are data).
+	  \param[in] size Data size in bytes (including 2 bytes of part number).
+
+	  Data is added to buffer according to the part number specified in the first two bytes.
+	  Each part is marked as filled in the mParts array.
 	*/
 	void addData(uint8_t *data, uint32_t size);
 
-	/// Получение данных из буфера по частям для последовательного чтения.
+	/// Get data from buffer by parts for sequential reading.
 	/*!
-	  \param[out] size Размер полученных данных в байтах.
-	  \param[out] index Номер части, из которой получены данные.
-	  \return Указатель на данные или nullptr если все части уже прочитаны или буфер не загружен.
-	  
-	  Функция возвращает указатель на следующую непрочитанную часть буфера и помечает её как прочитанную.
-	  После чтения все части будут последовательно возвращены, после чего функция вернёт nullptr.
+	  \param[out] size Size of received data in bytes.
+	  \param[out] index Number of part from which data was received.
+	  \return Pointer to data or nullptr if all parts have already been read or buffer not loaded.
+
+	  Function returns pointer to next unread buffer part and marks it as read.
+	  After reading, all parts will be returned sequentially, after which function returns nullptr.
 	*/
 	uint8_t *getData(uint32_t &size, uint16_t &index);
 };

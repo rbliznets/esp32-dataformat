@@ -1,7 +1,7 @@
 /*!
     \file
-    \brief Класс для работы с буфером PSRAM.
-    \authors Близнец Р.А. (r.bliznets@gmail.com)
+    \brief Class for working with PSRAM buffer.
+    \authors Bliznets R.A. (r.bliznets@gmail.com)
     \version 1.2.0.0
     \date 21.02.2024
 */
@@ -15,20 +15,20 @@
 static const char *TAG = "buf";
 
 /**
- * @brief Инициализация буфера заданного размера
- * @param size Размер буфера в байтах
- * @return true если инициализация успешна, false в случае ошибки
+ * @brief Initialize buffer with specified size
+ * @param size Buffer size in bytes
+ * @return true if initialization successful, false on error
  */
 bool CBufferSystem::init(uint32_t size)
 {
-    // Освобождаем память, если буфер уже был создан
+    // Free memory if buffer was already created
     free();
-    
+
 #ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
-    // Выделяем память в PSRAM (внешняя память)
+    // Allocate memory in PSRAM (external memory)
     mBuffer = (uint8_t *)heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
 #else
-    // Выделяем память в обычной куче
+    // Allocate memory in regular heap
     mBuffer = (uint8_t *)heap_caps_malloc(size, MALLOC_CAP_DEFAULT);
 #endif
 
@@ -42,17 +42,17 @@ bool CBufferSystem::init(uint32_t size)
 }
 
 /**
- * @brief Освобождение памяти буфера
+ * @brief Free buffer memory
  */
 void CBufferSystem::free()
 {
     if (mBuffer != nullptr)
     {
-        // Освобождаем буфер
+        // Free buffer
         heap_caps_free(mBuffer);
         mBuffer = nullptr;
-        
-        // Освобождаем массив флагов частей
+
+        // Free parts flags array
         if (mParts != nullptr)
         {
             delete[] mParts;
@@ -62,29 +62,29 @@ void CBufferSystem::free()
 }
 
 /**
- * @brief Обработка команд для работы с буфером
- * @param cmd JSON-команда
- * @param answer JSON-ответ
- * @param cancel флаг отмены операции
+ * @brief Process commands for buffer operations
+ * @param cmd JSON command
+ * @param answer JSON response
+ * @param cancel operation cancellation flag
  */
 void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
 {
     cancel = false;
-    
-    // Проверяем наличие команды для буфера
+
+    // Check if buffer command exists
     if (cmd.contains("buf"))
     {
         answer["buf"] = json::object();
-        
-        // Команда создания буфера
+
+        // Buffer creation command
         if (cmd["buf"].contains("create") && cmd["buf"]["create"].is_number_unsigned())
         {
             uint32_t x = cmd["buf"]["create"].template get<uint32_t>();
-            
-            // Инициализируем буфер заданного размера
+
+            // Initialize buffer with specified size
             if (init(x))
             {
-                // Устанавливаем размер части буфера
+                // Set buffer part size
                 if (cmd["buf"].contains("part") && cmd["buf"]["part"].is_number_unsigned())
                 {
                     mPart = cmd["buf"]["part"].template get<uint16_t>();
@@ -93,19 +93,19 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
                 {
                     mPart = BUF_PART_SIZE;
                 }
-                
-                // Вычисляем номер последней части
+
+                // Calculate last part number
                 mLastPart = mSize / mPart;
                 if (mSize % mPart == 0)
                     mLastPart--;
-                
-                // Создаем массив флагов для отслеживания заполненных частей
+
+                // Create array of flags to track filled parts
                 mParts = new uint8_t[mLastPart + 1];
                 std::memset(mParts, 0, mLastPart + 1);
-                
+
                 mRead = false;
-                
-                std::string str = "Buf wasn created ";
+
+                std::string str = "Buf was created ";
                 str += std::to_string(mSize) + "(" + std::to_string(mPart) + ")";
                 answer["buf"]["ok"] = str;
             }
@@ -116,7 +116,7 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
                 answer["buf"]["error"] = str;
             }
         }
-        // Команда проверки состояния буфера
+        // Buffer status check command
         else if (cmd["buf"].contains("check"))
         {
             if (mParts == nullptr)
@@ -125,7 +125,7 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
             }
             else
             {
-                // Формируем список незаполненных частей
+                // Form list of unfilled parts
                 answer["buf"]["empty"] = json::array();
                 for (int i = 0; i <= mLastPart; i++)
                 {
@@ -138,7 +138,7 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
                 answer["buf"]["part"] = mPart;
             }
         }
-        // Команда записи буфера в файл
+        // Write buffer to file command
         else if (cmd["buf"].contains("wr") && cmd["buf"]["wr"].is_string())
         {
             if (mBuffer == nullptr)
@@ -149,22 +149,22 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
             {
                 std::string fname = cmd["buf"]["wr"].template get<std::string>();
                 std::string str = "/spiffs/" + fname;
-                
-                // Записываем буфер в файл SPIFFS
+
+                // Write buffer to SPIFFS file
                 if (!CSpiffsSystem::writeBuffer(str.c_str(), mBuffer, mSize))
                 {
                     answer["buf"]["error"] = "Failed to write to file " + fname;
                 }
                 else
                 {
-                    // Опционально освобождаем буфер после записи
+                    // Optionally free buffer after writing
                     if (cmd["buf"].contains("free"))
                         free();
                     answer["buf"]["ok"] = "file " + fname + " was saved";
                 }
             }
         }
-        // Команда обновления OTA из буфера
+        // OTA update from buffer command
         else if (cmd["buf"].contains("ota"))
         {
             if (mBuffer == nullptr)
@@ -173,21 +173,21 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
             }
             else
             {
-                // Выполняем OTA обновление из содержимого буфера
+                // Perform OTA update from buffer content
                 answer["buf"] = json::parse("{" + COTASystem::update(mBuffer, mSize) + "}");
-                
-                // Опционально освобождаем буфер после обновления
+
+                // Optionally free buffer after update
                 if (cmd["buf"].contains("free"))
                     free();
             }
         }
-        // Команда чтения буфера из файла
+        // Read buffer from file command
         else if (cmd["buf"].contains("rd") && cmd["buf"]["rd"].is_string())
         {
             std::string fname = cmd["buf"]["rd"].template get<std::string>();
             std::string str = "/spiffs/" + fname;
-            
-            // Открываем файл для чтения
+
+            // Open file for reading
             FILE *f = std::fopen(str.c_str(), "r");
             if (f == nullptr)
             {
@@ -197,30 +197,30 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
             else
             {
                 answer["buf"]["fr"] = fname;
-                
-                // Получаем размер файла
+
+                // Get file size
                 std::fseek(f, 0, SEEK_END);
                 int32_t sz = std::ftell(f);
-                
-                // Создаем буфер под размер файла
+
+                // Create buffer for file size
                 if (init(sz))
                 {
-                    // Устанавливаем размер части
+                    // Set part size
                     if (cmd["buf"].contains("part") && cmd["buf"]["part"].is_number_unsigned())
                         mPart = cmd["buf"]["part"].template get<uint16_t>();
                     else
                         mPart = BUF_PART_SIZE;
-                    
+
                     mLastPart = mSize / mPart;
                     if (mSize % mPart == 0)
                         mLastPart--;
-                    
-                    // Читаем данные из файла в буфер
+
+                    // Read data from file to buffer
                     std::fseek(f, 0, SEEK_SET);
                     size_t sz = std::fread(mBuffer, 1, mSize, f);
                     if (sz == mSize)
                     {
-                        // Инициализируем массив флагов - все части заполнены
+                        // Initialize flags array - all parts filled
                         mParts = new uint8_t[mLastPart + 1];
                         std::memset(mParts, 1, mLastPart + 1);
                         answer["buf"]["ok"] = "buffer was loaded from " + fname;
@@ -241,7 +241,7 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
                 std::fclose(f);
             }
         }
-        // Команда освобождения буфера
+        // Free buffer command
         else if (cmd["buf"].contains("free"))
         {
             if (mBuffer == nullptr)
@@ -254,7 +254,7 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
                 answer["buf"]["ok"] = "buffer was deleted";
             }
         }
-        // Команда отмены с освобождением буфера
+        // Cancel with buffer free command
         else if (cmd["buf"].contains("cancel"))
         {
             if (mBuffer == nullptr)
@@ -272,49 +272,49 @@ void CBufferSystem::command(json &cmd, json &answer, bool &cancel)
 }
 
 /**
- * @brief Добавление данных в буфер
- * @param data указатель на данные (первые 2 байта - номер части)
- * @param size размер данных
+ * @brief Add data to buffer
+ * @param data pointer to data (first 2 bytes are part number)
+ * @param size data size
  */
 void CBufferSystem::addData(uint8_t *data, uint32_t size)
 {
     if ((mBuffer != nullptr) && (mParts != nullptr))
     {
-        // Извлекаем номер части из первых двух байт данных
+        // Extract part number from first two data bytes
         uint16_t part = data[0] + data[1] * 256;
-        
-        // Проверяем, что номер части в допустимом диапазоне
+
+        // Check if part number is in valid range
         if (part < mLastPart)
         {
-            // Проверяем размер данных для обычной части
+            // Check data size for regular part
             if (size == (mPart + 2))
             {
-                // Копируем данные в соответствующую позицию буфера
+                // Copy data to appropriate buffer position
                 std::memcpy(&mBuffer[part * mPart], &data[2], mPart);
-                
-                // Проверяем, не перезаписываем ли мы уже существующую часть
+
+                // Check if we're overwriting existing part
                 if (mParts[part] != 0)
                     ESP_LOGW(TAG, "rewrite part %d", part);
                 else
-                    mParts[part] = 1; // Помечаем часть как заполненную
+                    mParts[part] = 1; // Mark part as filled
             }
             else
                 ESP_LOGE(TAG, "size %ld != %d for %d", (size - 2), mPart, part);
         }
-        // Обработка последней части (может быть меньшего размера)
+        // Handle last part (may be smaller size)
         else if (part == mLastPart)
         {
-            uint32_t sz = mSize - mLastPart * mPart; // Размер последней части
+            uint32_t sz = mSize - mLastPart * mPart; // Size of last part
             if (size == (sz + 2))
             {
-                // Копируем данные последней части
+                // Copy last part data
                 std::memcpy(&mBuffer[part * mPart], &data[2], sz);
-                
-                // Проверяем перезапись
+
+                // Check overwrite
                 if (mParts[part] != 0)
                     ESP_LOGW(TAG, "rewrite part %d", part);
                 else
-                    mParts[part] = 1; // Помечаем как заполненную
+                    mParts[part] = 1; // Mark as filled
             }
             else
                 ESP_LOGE(TAG, "size %ld != %ld for %d", (size - 2), sz, part);
@@ -327,37 +327,37 @@ void CBufferSystem::addData(uint8_t *data, uint32_t size)
 }
 
 /**
- * @brief Получение данных из буфера по частям
- * @param size размер возвращаемых данных
- * @param index номер части
- * @return указатель на данные или nullptr если данных нет
+ * @brief Get data from buffer by parts
+ * @param size returned data size
+ * @param index part number
+ * @return pointer to data or nullptr if no data available
  */
 uint8_t *CBufferSystem::getData(uint32_t &size, uint16_t &index)
 {
     uint8_t *res = nullptr;
-    
-    // Проверяем, что буфер загружен и массив частей существует
+
+    // Check if buffer is loaded and parts array exists
     if (mRead && (mParts != nullptr))
     {
-        // Ищем первую заполненную часть
+        // Find first filled part
         for (int i = 0; i <= mLastPart; i++)
         {
             if (mParts[i] == 1)
             {
-                mParts[i] = 0; // Помечаем часть как прочитанную
-                
-                // Определяем размер части
+                mParts[i] = 0; // Mark part as read
+
+                // Determine part size
                 if (i < mLastPart)
                 {
-                    size = mPart; // Обычная часть
+                    size = mPart; // Regular part
                 }
                 else
                 {
-                    size = mSize - i * mPart; // Последняя часть
+                    size = mSize - i * mPart; // Last part
                 }
-                
-                res = &mBuffer[i * mPart]; // Указатель на данные
-                index = i; // Номер части
+
+                res = &mBuffer[i * mPart]; // Pointer to data
+                index = i;                 // Part number
                 break;
             }
         }

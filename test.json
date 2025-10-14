@@ -1,6 +1,0 @@
-{"spiffs":{"ls":""}}
-{"spiffs":{"ct":"test.txt","text":"{\"field\":10}"}}
-{"spiffs":{"at":"test.txt","text":"{\"field\":10}"}}
-{"spiffs":{"rt":"test.txt","offset":14,"size":64}}
-{"spiffs":{"rt":"test.txt"}}
-{"spiffs":{"rm":"test.txt"}}

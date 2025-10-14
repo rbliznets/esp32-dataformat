@@ -1,11 +1,11 @@
 /*!
     \file
-    \brief Класс для работы с SPIFFS.
-    \authors Близнец Р.А. (r.bliznets@gmail.com)
-    \version 1.3.1.0
+    \brief Class for working with SPIFFS.
+    \authors Bliznets R.A. (r.bliznets@gmail.com)
+    \version 1.4.0.0
     \date 12.12.2023
-    \details Реализация методов для работы с файловой системой SPIFFS на ESP32.
-             Включает функции инициализации, управления файлами и транзакциями.
+    \details Implementation of methods for working with SPIFFS file system on ESP32.
+             Includes functions for initialization, file management and transactions.
 */
 
 #include "CSpiffsSystem.h"
@@ -21,22 +21,22 @@
 #include "esp_task_wdt.h"
 #include <filesystem>
 
-static const char *TAG = "spiffs"; ///< Тег для логирования
+static const char *TAG = "spiffs"; ///< Tag for logging
 
-// Статический список обработчиков событий работы с SPIFFS
-// Хранит указатели на функции, которые будут вызываться при начале/окончании операций записи
-// Используется для уведомления внешних модулей о состоянии файловой системы
+// Static list of SPIFFS event handlers
+// Stores pointers to functions that will be called at the beginning/end of write operations
+// Used to notify external modules about file system state
 std::list<onSpiffsWork *> CSpiffsSystem::mWriteQueue;
 
 /*!
- * @brief Вызов всех зарегистрированных обработчиков событий
- * @param lock true - начало транзакции (запись), false - окончание транзакции
+ * @brief Call all registered event handlers
+ * @param lock true - start transaction (write), false - end transaction
  *
- * Последовательно вызывает каждый обработчик из mWriteQueue с переданным флагом
- * Гарантирует вызов всех уникальных обработчиков (без дублирования)
+ * Sequentially calls each handler from mWriteQueue with the passed flag
+ * Guarantees calling all unique handlers (without duplication)
  *
- * \note Метод блокирует доступ к файловой системе до завершения всех вызовов
- * \warning Не должен использоваться внутри обработчиков событий
+ * \note Method blocks access to file system until all calls are completed
+ * \warning Should not be used inside event handlers
  */
 void CSpiffsSystem::writeEvent(bool lock)
 {
@@ -47,77 +47,77 @@ void CSpiffsSystem::writeEvent(bool lock)
 }
 
 /*!
- * @brief Регистрация нового обработчика событий
- * @param event Указатель на функцию-обработчик
+ * @brief Register new event handler
+ * @param event Pointer to handler function
  *
- * Добавляет функцию в список mWriteQueue только если она еще не существует
- * Предотвращает дублирование обработчиков
+ * Adds function to mWriteQueue list only if it doesn't exist yet
+ * Prevents handler duplication
  *
- * \note Проверка на уникальность выполняется перед добавлением
- * \warning Необходимо убедиться, что обработчик корректно освобождается память
+ * \note Uniqueness check is performed before adding
+ * \warning Must ensure handler memory is properly freed
  */
 void CSpiffsSystem::addWriteEvent(onSpiffsWork *event)
 {
-    // Проверка наличия обработчика в списке перед добавлением
+    // Check for handler presence in list before adding
     for (auto &e : mWriteQueue)
     {
         if (e == event)
         {
-            return; // Обработчик уже существует - выходим
+            return; // Handler already exists - exit
         }
     }
     mWriteQueue.push_back(event);
 }
 
 /*!
- * @brief Удаление обработчика событий
- * @param event Указатель на функцию-обработчик
+ * @brief Remove event handler
+ * @param event Pointer to handler function
  *
- * Удаляет все вхождения указанного обработчика из списка mWriteQueue
- * Использует безопасное удаление с помощью std::erase_if
+ * Removes all occurrences of specified handler from mWriteQueue list
+ * Uses safe removal with std::erase_if
  *
- * \note Метод гарантирует удаление всех дубликатов обработчика
- * \warning После удаления обработчика необходимо корректно освободить память
+ * \note Method guarantees removal of all handler duplicates
+ * \warning After removal, handler memory must be properly freed
  */
 void CSpiffsSystem::removeWriteEvent(onSpiffsWork *event)
 {
-    // Удаление всех вхождений обработчика из списка
+    // Remove all occurrences of handler from list
     std::erase_if(mWriteQueue, [event](const auto &item)
                   { return item == event; });
 }
 
 /*!
- * @brief Инициализация файловой системы SPIFFS
- * @param check Флаг проверки целостности файловой системы (true - проверять, false - не проверять)
- * @return true - если инициализация прошла успешно, иначе false
+ * @brief Initialize SPIFFS file system
+ * @param check File system integrity check flag (true - check, false - don't check)
+ * @return true - if initialization was successful, otherwise false
  *
- * Выполняет следующие действия:
- * 1. Регистрация SPIFFS в системе виртуальных файловых систем (VFS)
- * 2. Проверка целостности файловой системы (при check=true)
- * 3. Получение и логирование информации о разделе
- * 4. Восстановление файловой системы при необходимости
+ * Performs the following actions:
+ * 1. Register SPIFFS in Virtual File System (VFS)
+ * 2. Check file system integrity (when check=true)
+ * 3. Get and log partition information
+ * 4. Restore file system if necessary
  *
- * \note При check=true выполняется долгая операция проверки (может вызвать таймаут Watchdog)
- * \warning Форматирование файловой системы приведет к потере всех данных
+ * \note When check=true performs long operation (may cause Watchdog timeout)
+ * \warning Formatting file system will result in loss of all data
  */
 bool CSpiffsSystem::init(bool check)
 {
-    // Конфигурация параметров монтирования SPIFFS
-    // - base_path: корневой каталог для доступа к SPIFFS
-    // - max_files: максимальное количество одновременно открытых файлов
-    // - format_if_mount_failed: автоматическое форматирование при неудачном монтировании
+    // SPIFFS mount configuration
+    // - base_path: root directory for SPIFFS access
+    // - max_files: maximum number of simultaneously opened files
+    // - format_if_mount_failed: automatic formatting on mount failure
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
         .partition_label = nullptr,
         .max_files = 15,
         .format_if_mount_failed = true};
 
-    // Регистрация SPIFFS в VFS
-    // Возвращает ESP_OK при успешной регистрации
+    // Register SPIFFS in VFS
+    // Returns ESP_OK on successful registration
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK)
     {
-        // Обработка ошибок монтирования
+        // Handle mount errors
         if (ret == ESP_FAIL)
         {
             ESP_LOGE(TAG, "Failed to mount or format filesystem");
@@ -133,18 +133,18 @@ bool CSpiffsSystem::init(bool check)
         return false;
     }
 
-    // Дополнительная проверка завершения транзакций
+    // Additional transaction completion check
     check |= endTransaction();
 
-    // Проверка целостности файловой системы
+    // Check file system integrity
     if (check)
     {
-        // Предупреждение о длительной операции при включенном Watchdog
+        // Warning about long operation when Watchdog is enabled
 #ifdef CONFIG_ESP_TASK_WDT_INIT
         ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
 #endif
         ESP_LOGI(TAG, "SPIFFS checking...");
-        // Проверка целостности раздела
+        // Check partition integrity
         ret = esp_spiffs_check(conf.partition_label);
         if (ret != ESP_OK)
         {
@@ -154,70 +154,70 @@ bool CSpiffsSystem::init(bool check)
         else
         {
             ESP_LOGI(TAG, "SPIFFS_check() successful");
-            // Сборка мусора для освобождения пространства
+            // Garbage collection to free space
             esp_spiffs_gc(conf.partition_label, 100000);
         }
     }
 
-    // Получение информации о разделе
+    // Get partition information
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
     if (ret != ESP_OK)
     {
-        // Предупреждение о длительной операции при включенном Watchdog
+        // Warning about long operation when Watchdog is enabled
 #ifdef CONFIG_ESP_TASK_WDT_INIT
         ESP_LOGW(TAG, "Long time operation, but WD is enabled.");
 #endif
-        // Попытка восстановления через форматирование
+        // Attempt recovery through formatting
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
         ret = esp_spiffs_format(conf.partition_label);
         return (ret == ESP_OK);
     }
     else
     {
-        // Логирование размера раздела
+        // Log partition size
         ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     }
     return true;
 }
 
 /*!
- * @brief Освобождение ресурсов SPIFFS
+ * @brief Free SPIFFS resources
  *
- * Выполняет следующие действия:
- * 1. Отменяет регистрацию SPIFFS в системе VFS
- * 2. Освобождает связанные ресурсы
+ * Performs the following actions:
+ * 1. Unregister SPIFFS from VFS system
+ * 2. Free associated resources
  *
- * \note После вызова этого метода доступ к файловой системе невозможен
- * \warning Необходимо убедиться, что все файлы закрыты перед вызовом
+ * \note After calling this method, access to file system is impossible
+ * \warning Must ensure all files are closed before calling
  */
 void CSpiffsSystem::free()
 {
-    // Отмена регистрации SPIFFS
-    // nullptr указывает на отмену регистрации всех разделов
+    // Unregister SPIFFS
+    // nullptr indicates unregistration of all partitions
     esp_vfs_spiffs_unregister(nullptr);
 }
 
 /*!
- * @brief Завершение транзакции с файловой системой
- * @return true - если требуется повторная проверка файловой системы, иначе false
+ * @brief End file system transaction
+ * @return true - if file system recheck is required, otherwise false
  *
- * Обрабатывает специальные файлы транзакций:
- * - Файлы с суффиксом "$" - содержат временные данные для переименования
- * - Файлы с суффиксом "!" - содержат данные для удаления
+ * Processes special transaction files:
+ * - Files with suffix "$" - contain temporary data for renaming
+ * - Files with suffix "!" - contain data for deletion
  *
- * Алгоритм работы:
- * 1. Открывает корневую директорию SPIFFS
- * 2. Проверяет наличие маркера активной транзакции "$"
- * 3. При отсутствии маркера:
- *    - Удаляет оставшиеся временные файлы ($ и !)
- *    - Выполняет восстановление целостности
- * 4. При наличии маркера:
- *    - Выполняет завершение транзакции (переименование и удаление)
- *    - Удаляет маркер транзакции
+ * Algorithm:
+ * 1. Opens SPIFFS root directory
+ * 2. Checks for active transaction marker "$"
+ * 3. Without marker:
+ *    - Deletes remaining temporary files ($ and !)
+ *    - Performs integrity recovery
+ * 4. With marker:
+ *    - Completes transaction (rename and delete)
+ *    - Removes transaction marker
  *
- * \note Рекурсивный вызов обрабатывает оставшиеся артефакты
- * \warning Метод модифицирует файловую систему - не использовать в критических секциях
+ * \note Recursive call handles remaining artifacts
+ * \warning Method modifies file system - don't use in critical sections
  */
 bool CSpiffsSystem::endTransaction()
 {
@@ -225,36 +225,36 @@ bool CSpiffsSystem::endTransaction()
     DIR *dp;
     bool res = false;
 
-    // Открытие корневой директории SPIFFS
+    // Open SPIFFS root directory
     dp = opendir("/spiffs");
     if (dp == nullptr)
     {
         ESP_LOGE(TAG, "Failed to open dir /spiffs");
-        res = true; // Требуется проверка ФС из-за ошибки открытия
+        res = true; // File system check required due to open error
     }
     else
     {
         std::string str = "/spiffs/";
 
-        // Проверка наличия маркера активной транзакции ($)
+        // Check for active transaction marker ($)
         FILE *f = std::fopen("/spiffs/$", "r");
         if (f == nullptr)
         {
-            // Режим восстановления: обработка оставшихся артефактов
+            // Recovery mode: process remaining artifacts
             while ((entry = readdir(dp)))
             {
                 std::string fname = entry->d_name;
 
-                // Удаление временных файлов с суффиксом $
+                // Delete temporary files with suffix $
                 if (fname[fname.length() - 1] == '$')
                 {
-                    res = true; // ФС была изменена
+                    res = true; // File system was modified
                     std::remove((str + fname).c_str());
                 }
-                // Удаление временных файлов с суффиксом !
+                // Delete temporary files with suffix !
                 else if (fname[fname.length() - 1] == '!')
                 {
-                    res = true; // ФС была изменена
+                    res = true; // File system was modified
                     std::remove((str + fname).c_str());
                 }
             }
@@ -262,24 +262,24 @@ bool CSpiffsSystem::endTransaction()
         }
         else
         {
-            // Активная транзакция обнаружена - завершение операций
+            // Active transaction detected - complete operations
             std::fclose(f);
 
-            // Обработка всех файлов в директории
+            // Process all files in directory
             while ((entry = readdir(dp)))
             {
                 std::string fname = entry->d_name;
 
-                // Обработка файлов с суффиксом ! (удаление)
+                // Process files with suffix ! (delete)
                 if ((fname.length() > 1) && (fname[fname.length() - 1] == '!'))
                 {
                     std::string fname2 = fname.substr(0, fname.length() - 1);
 
-                    // Удаление оригинального файла
+                    // Delete original file
                     std::remove((str + fname2).c_str());
                     // ESP_LOGI(TAG, "remove file %s", fname2.c_str());
 
-                    // Удаление временного файла
+                    // Delete temporary file
                     if (std::remove((str + fname).c_str()) != 0)
                     {
                         ESP_LOGE(TAG, "Failed to remove file %s",
@@ -292,15 +292,15 @@ bool CSpiffsSystem::endTransaction()
             while ((entry = readdir(dp)))
             {
                 std::string fname = entry->d_name;
-                // Обработка файлов с суффиксом $ (переименование)
+                // Process files with suffix $ (rename)
                 if ((fname.length() > 1) && (fname[fname.length() - 1] == '$'))
                 {
                     std::string fname2 = fname.substr(0, fname.length() - 1);
 
-                    // Удаление оригинального файла перед переименованием
+                    // Delete original file before rename
                     std::remove((str + fname2).c_str());
 
-                    // Переименование временного файла
+                    // Rename temporary file
                     if (std::rename((str + fname).c_str(), (str + fname2).c_str()) != 0)
                     {
                         ESP_LOGE(TAG, "Failed to rename file %s to %s",
@@ -310,55 +310,55 @@ bool CSpiffsSystem::endTransaction()
             }
             closedir(dp);
 
-            // Рекурсивный вызов для обработки оставшихся артефактов
+            // Recursive call to handle remaining artifacts
             if (res)
             {
-                endTransaction(); // Повторная попытка завершения
+                endTransaction(); // Retry completion
             }
             else
             {
-                // Удаление маркера транзакции
+                // Remove transaction marker
                 std::remove("/spiffs/$");
                 res = true;
             }
         }
     }
-    return res; // true - если были изменения, требующие проверки
+    return res; // true - if changes require checking
 }
 
 /*!
- * @brief Запись буфера данных в файл
- * @param fileName Имя файла для записи
- * @param data Указатель на данные для записи
- * @param size Размер данных в байтах
- * @return true - если запись прошла успешно, иначе false
+ * @brief Write buffer data to file
+ * @param fileName File name for writing
+ * @param data Pointer to data for writing
+ * @param size Data size in bytes
+ * @return true - if write was successful, otherwise false
  *
- * Выполняет атомарную операцию записи с блокировкой файловой системы:
- * 1. Уведомляет обработчики событий о начале транзакции
- * 2. Открывает файл в режиме дозаписи
- * 3. Выполняет запись данных
- * 4. Уведомляет обработчики событий об окончании транзакции
+ * Performs atomic write operation with file system locking:
+ * 1. Notify event handlers about start of transaction
+ * 2. Open file in append mode
+ * 3. Perform data write
+ * 4. Notify event handlers about end of transaction
  *
- * \note Файл открывается в режиме "a" для дозаписи
- * \warning Не гарантирует атомарность при сбоях питания
+ * \note File opens in "a" mode for appending
+ * \warning Doesn't guarantee atomicity on power failures
  */
 bool CSpiffsSystem::writeBuffer(const char *fileName, uint8_t *data, uint32_t size)
 {
-    // Уведомление обработчиков о начале операции
+    // Notify handlers about start of operation
     writeEvent(true);
 
-    // Открытие файла для дозаписи
+    // Open file for appending
     FILE *f = std::fopen(fileName, "a");
     if (f == nullptr)
     {
-        // Уведомление обработчиков об окончании операции
+        // Notify handlers about end of operation
         writeEvent(false);
         ESP_LOGE(TAG, "Failed to open file %s", fileName);
         return false;
     }
     else
     {
-        // Запись данных в файл
+        // Write data to file
         if (std::fwrite(data, 1, size, f) != size)
         {
             std::fclose(f);
@@ -369,7 +369,7 @@ bool CSpiffsSystem::writeBuffer(const char *fileName, uint8_t *data, uint32_t si
         else
         {
             std::fclose(f);
-            // Уведомление обработчиков об окончании операции
+            // Notify handlers about end of operation
             writeEvent(false);
             return true;
         }
@@ -377,23 +377,23 @@ bool CSpiffsSystem::writeBuffer(const char *fileName, uint8_t *data, uint32_t si
 }
 
 /**
- * @brief Очищает содержимое файлов в указанной директории (при окончании транзакции)
+ * @brief Clears content of files in specified directory (at end of transaction)
  *
- * Функция открывает все файлы в директории и маркирует их для стирания при завершении транзакции.
- * Файлы с расширениями '!' и '$' игнорируются (считаются служебными).
+ * Function opens all files in directory and marks them for erasure at transaction end.
+ * Files with extensions '!' and '$' are ignored (considered service files).
  *
- * @param dirName Путь к директории, содержимое файлов которой нужно очистить
- * @return uint16_t Количество успешно очищенных файлов
+ * @param dirName Path to directory whose file content needs to be cleared
+ * @return uint16_t Number of successfully cleared files
  */
 uint16_t CSpiffsSystem::clearDir(const char *dirName)
 {
-    uint16_t res = 0;     // Счетчик успешно очищенных файлов
-    struct dirent *entry; // Указатель на элемент директории
-    DIR *dp;              // Указатель на дескриптор директории
+    uint16_t res = 0;     // Counter for successfully cleared files
+    struct dirent *entry; // Pointer to directory entry
+    DIR *dp;              // Pointer to directory descriptor
 
-    // writeEvent(true); // Сигнал начала операции записи
+    // writeEvent(true); // Signal start of write operation
 
-    dp = opendir(dirName); // Открываем директорию для чтения
+    dp = opendir(dirName); // Open directory for reading
     if (dp != nullptr)
     {
         std::list<std::string> transFiles;
@@ -414,43 +414,43 @@ uint16_t CSpiffsSystem::clearDir(const char *dirName)
             if (it != transFiles.end())
                 continue;
 
-            // Проверяем, что имя файла длиннее 1 символа и не заканчивается на '!' или '$'
+            // Check that file name is longer than 1 character and doesn't end with '!' or '$'
             if ((str.length() > 1) && (str[str.length() - 1] != '!') && (str[str.length() - 1] != '$'))
             {
                 std::string fname = dirName;
                 fname += "/" + str + "!";
-                FILE *f = std::fopen(fname.c_str(), "w"); // Открываем файл в режиме записи (усекает файл до 0 байт)
+                FILE *f = std::fopen(fname.c_str(), "w"); // Open file in write mode (truncates file to 0 bytes)
                 if (f != nullptr)
                 {
-                    std::fclose(f); // Закрываем файл
-                    res++;          // Увеличиваем счетчик очищенных файлов
+                    std::fclose(f); // Close file
+                    res++;          // Increment cleared file counter
                 }
             }
         }
-        closedir(dp); // Закрываем директорию после чтения
+        closedir(dp); // Close directory after reading
     }
 
-    // writeEvent(false); // Сигнал окончания операции записи
-    return res;        // Возвращаем количество успешно очищенных файлов
+    // writeEvent(false); // Signal end of write operation
+    return res; // Return number of successfully cleared files
 }
 
 /*!
- * @brief Обработка команд JSON для SPIFFS
- * @param cmd JSON-объект с командой в корне файловой системы
- * @param[out] answer json с ответом.
+ * @brief Process JSON commands for SPIFFS
+ * @param cmd JSON object with command at file system root
+ * @param[out] answer json with response.
  *
- * Обрабатывает следующие команды:
- * - ls: Получение списка файлов в директории
- * - rd: Чтение содержимого файла
- * - rm: Удаление файла
- * - trans: Управление транзакциями (end/cancel)
- * - old/new: Переименование файла
- * - wr: Дозапись данных в файл
- * - ct: Создание файла с текстом
- * - at: Добавление текста в конец файла
- * - rt: Чтение текстового файла
+ * Processes the following commands:
+ * - ls: Get list of files in directory
+ * - rd: Read file content
+ * - rm: Delete file
+ * - trans: Transaction management (end/cancel)
+ * - old/new: Rename file
+ * - wr: Append data to file
+ * - ct: Create file with text
+ * - at: Append text to end of file
+ * - rt: Read text file
  *
- * \note Все операции с файлами обёрнуты в writeEvent() для синхронизации
+ * \note All file operations are wrapped in writeEvent() for synchronization
  */
 void CSpiffsSystem::command(json &cmd, json &answer)
 {
@@ -458,7 +458,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
     {
         answer["spiffs"] = json::object();
 
-        // Команда получения списка файлов в директории
+        // Command to get list of files in directory
         if (cmd["spiffs"].contains("ls") && cmd["spiffs"]["ls"].is_string())
         {
             std::string fname = cmd["spiffs"]["ls"].template get<std::string>();
@@ -467,7 +467,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
 
             int offset = 0;
             int count = -1;
-            // Получение параметров пагинации
+            // Get pagination parameters
             if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
             {
                 offset = cmd["spiffs"]["offset"].template get<int>();
@@ -477,16 +477,16 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 count = cmd["spiffs"]["count"].template get<int>();
             }
 
-            // Формирование полного пути
+            // Form complete path
             if (fname != "")
                 fname2 += "/" + fname;
 
             struct dirent *entry;
             DIR *dp;
             std::map<std::string, uint32_t> dirs;
-            writeEvent(true); // Блокировка файловой системы
+            writeEvent(true); // Lock file system
 
-            // Открытие директории
+            // Open directory
             dp = opendir(fname2.c_str());
             if (dp == nullptr)
             {
@@ -499,7 +499,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 fname2 += "/";
                 answer["spiffs"]["files"] = json::array();
 
-                // Сканирование содержимого директории
+                // Scan directory contents
                 while ((entry = readdir(dp)))
                 {
                     char *result;
@@ -545,9 +545,9 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     }
                 }
                 closedir(dp);
-                writeEvent(false); // Разблокировка файловой системы
+                writeEvent(false); // Unlock file system
 
-                // Добавление информации о подкаталогах
+                // Add information about subdirectories
                 for (const auto &[key, value] : dirs)
                 {
                     offset--;
@@ -567,7 +567,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 }
             }
         }
-        // Команда чтения бинарного файла
+        // Command to read binary file
         else if (cmd["spiffs"].contains("rd") && cmd["spiffs"]["rd"].is_string())
         {
             std::string fname = cmd["spiffs"]["rd"].template get<std::string>();
@@ -583,7 +583,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             {
                 answer["spiffs"]["fr"] = fname;
                 int offset = 0;
-                // Получение параметров чтения
+                // Get read parameters
                 if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
                 {
                     offset = cmd["spiffs"]["offset"].template get<int>();
@@ -601,12 +601,12 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 uint8_t *data = new uint8_t[size];
                 str = "";
 
-                // Чтение данных с указанного смещения
+                // Read data from specified offset
                 std::fseek(f, offset, SEEK_SET);
                 size = std::fread(data, 1, size, f);
                 std::fclose(f);
 
-                // Преобразование бинарных данных в HEX-строку
+                // Convert binary data to HEX string
                 char tmp[4];
                 for (size_t i = 0; i < size; i++)
                 {
@@ -617,7 +617,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["data"] = str;
             }
         }
-        // Команда удаления файла
+        // Command to delete file
         else if (cmd["spiffs"].contains("rm") && cmd["spiffs"]["rm"].is_string())
         {
             std::string fname = cmd["spiffs"]["rm"].template get<std::string>();
@@ -635,7 +635,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             writeEvent(false);
             answer["spiffs"]["fd"] = fname;
         }
-        // Команда управления транзакциями
+        // Command for transaction management
         else if (cmd["spiffs"].contains("trans") && cmd["spiffs"]["trans"].is_string())
         {
             std::string fname = cmd["spiffs"]["trans"].template get<std::string>();
@@ -647,7 +647,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 {
                     for (auto &[key, val] : cmd["spiffs"]["clear"].items())
                     {
-                        if(val.is_string())
+                        if (val.is_string())
                         {
                             std::string str = "/spiffs/";
                             str += val.template get<std::string>();
@@ -674,7 +674,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["error"] = "Wrong transaction command: " + fname;
             }
         }
-        // Команда переименования файла
+        // Command to rename file
         else if (cmd["spiffs"].contains("old") && cmd["spiffs"]["old"].is_string() && cmd["spiffs"].contains("new") && cmd["spiffs"]["new"].is_string())
         {
             std::string fname = cmd["spiffs"]["old"].template get<std::string>();
@@ -729,7 +729,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["error"] = "Failed to rename file " + fname + " to " + fname2;
             }
         }
-        // Команда записи бинарных данных в файл
+        // Command to write binary data to file
         else if (cmd["spiffs"].contains("wr") && cmd["spiffs"]["wr"].is_string())
         {
             std::string fname = cmd["spiffs"]["wr"].template get<std::string>();
@@ -739,7 +739,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 std::string hexString = cmd["spiffs"]["data"].template get<std::string>();
                 std::vector<uint8_t> data(hexString.length() / 2);
 
-                // Преобразование HEX-строки в бинарные данные
+                // Convert HEX string to binary data
                 for (size_t i = 0; i < hexString.length(); i += 2)
                 {
                     std::string byteStr = hexString.substr(i, 2);
@@ -773,13 +773,13 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 {
                     int offset = 0;
                     long fsize = std::ftell(f);
-                    // Получение параметров записи
+                    // Get write parameters
                     if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
                     {
                         offset = cmd["spiffs"]["offset"].template get<int>();
                     }
 
-                    // Обрезка файла при необходимости
+                    // Truncate file if necessary
                     if (offset < fsize)
                     {
                         std::fclose(f);
@@ -789,7 +789,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                         answer["spiffs"]["rewrite"] = true;
                     }
 
-                    // Проверка корректности смещения
+                    // Check offset correctness
                     if (offset != fsize)
                     {
                         ESP_LOGW(TAG, "Wrong offset of file %s(%d)", fname.c_str(), offset);
@@ -797,7 +797,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     }
                     else
                     {
-                        // Запись данных в файл
+                        // Write data to file
                         if (std::fwrite(data.data(), 1, data.size(), f) != data.size())
                         {
                             ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), data.size());
@@ -822,7 +822,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 answer["spiffs"]["error"] = "No data to write for " + fname;
             }
         }
-        // Команда создания текстового файла
+        // Command to create text file
         else if (cmd["spiffs"].contains("ct") && cmd["spiffs"]["ct"].is_string() && cmd["spiffs"].contains("text") && cmd["spiffs"]["text"].is_string())
         {
             std::string fname = cmd["spiffs"]["ct"].template get<std::string>();
@@ -839,7 +839,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             }
             else
             {
-                // Запись текста в файл
+                // Write text to file
                 if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
                 {
                     ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
@@ -854,7 +854,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 writeEvent(false);
             }
         }
-        // Команда добавления текста в конец файла
+        // Command to append text to end of file
         else if (cmd["spiffs"].contains("at") && cmd["spiffs"]["at"].is_string() && cmd["spiffs"].contains("text") && cmd["spiffs"]["text"].is_string())
         {
             std::string fname = cmd["spiffs"]["at"].template get<std::string>();
@@ -871,7 +871,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             }
             else
             {
-                // Добавление текста в конец файла
+                // Append text to end of file
                 if (std::fwrite(fname2.c_str(), 1, fname2.length(), f) != fname2.length())
                 {
                     ESP_LOGW(TAG, "Failed to write to file %s(%d)", fname.c_str(), fname2.length());
@@ -886,7 +886,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 writeEvent(false);
             }
         }
-        // Команда чтения текстового файла
+        // Command to read text file
         else if (cmd["spiffs"].contains("rt") && cmd["spiffs"]["rt"].is_string())
         {
             std::string fname = cmd["spiffs"]["rt"].template get<std::string>();
@@ -902,7 +902,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             {
                 answer["spiffs"]["tr"] = fname;
                 int offset = 0;
-                // Получение параметров чтения
+                // Get read parameters
                 if (cmd["spiffs"].contains("offset") && cmd["spiffs"]["offset"].is_number_unsigned())
                 {
                     offset = cmd["spiffs"]["offset"].template get<int>();
@@ -917,7 +917,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                     size = cmd["spiffs"]["size"].template get<int>();
                 }
                 uint8_t *data = new uint8_t[size + 1];
-                // Чтение текста с указанного смещения
+                // Read text from specified offset
                 std::fseek(f, offset, SEEK_SET);
                 size = std::fread(data, 1, size, f);
                 std::fclose(f);

@@ -1,7 +1,7 @@
 /*!
     \file
-    \brief Класс для работы с SPIFFS.
-    \authors Близнец Р.А. (r.bliznets@gmail.com)
+    \brief Class for working with SPIFFS.
+    \authors Bliznets R.A. (r.bliznets@gmail.com)
     \version 1.4.0.0
     \date 12.12.2023
 */
@@ -17,134 +17,134 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-/// Тип функции обратного вызова для уведомления о событиях работы с SPIFFS
-/// @param lock true - начало транзакции (запись), false - окончание транзакции
+/// Callback function type for SPIFFS work event notification
+/// @param lock true - start transaction (write), false - end transaction
 typedef void onSpiffsWork(bool lock);
 
-/// Статический класс для работы с файловой системой SPIFFS.
+/// Static class for SPIFFS file system operations.
 /*!
-  Предоставляет функции для инициализации, управления файлами и транзакциями SPIFFS.
-  Поддерживает регистрацию callback-функций для уведомления о состоянии файловой системы.
-  Реализует атомарные операции ввода-вывода и управление транзакциями.
+  Provides functions for initialization, file management and transactions of SPIFFS.
+  Supports callback function registration for file system state notification.
+  Implements atomic input/output operations and transaction management.
 */
 class CSpiffsSystem
 {
 protected:
-    /// Очередь обработчиков событий работы с SPIFFS
-    /// Используется для уведомления внешних модулей о начале/окончании операций записи
+    /// Queue of SPIFFS work event handlers
+    /// Used to notify external modules about start/end of write operations
     static std::list<onSpiffsWork *> mWriteQueue;
 
-    /// Внутренний метод для генерации событий работы с файловой системой
-    /// @param lock true - начало транзакции (запись), false - окончание транзакции
+    /// Internal method for generating file system work events
+    /// @param lock true - start transaction (write), false - end transaction
     static void writeEvent(bool lock);
 
 public:
     /*!
-     * @brief Инициализация файловой системы SPIFFS
-     * @param check Флаг проверки целостности файловой системы (по умолчанию false)
-     * @return true - если инициализация прошла успешно, иначе false
+     * @brief Initialize SPIFFS file system
+     * @param check File system integrity check flag (default false)
+     * @return true - if initialization was successful, otherwise false
      *
-     * Выполняет регистрацию SPIFFS в VFS, проверку целостности (при check=true)
-     * и получение информации о разделе. При необходимости выполняет форматирование.
+     * Performs SPIFFS registration in VFS, integrity check (when check=true)
+     * and gets partition information. Performs formatting if necessary.
      *
-     * \note При check=true может вызвать таймаут Watchdog из-за длительной операции
-     * \warning Форматирование приведет к потере всех данных в файловой системе
+     * \note When check=true may cause Watchdog timeout due to long operation
+     * \warning Formatting will result in loss of all data in file system
      */
     static bool init(bool check = false);
 
     /*!
-     * @brief Освобождение ресурсов файловой системы
+     * @brief Free file system resources
      *
-     * Выполняет деинициализацию SPIFFS, отменяет регистрацию в VFS
-     * и освобождает связанные ресурсы.
+     * Performs SPIFFS deinitialization, unregisters from VFS
+     * and frees associated resources.
      *
-     * \note После вызова этого метода доступ к SPIFFS невозможен
-     * \warning Необходимо убедиться, что все файлы закрыты перед вызовом
+     * \note After calling this method, access to SPIFFS is impossible
+     * \warning Must ensure all files are closed before calling
      */
     static void free();
 
     /*!
-     * @brief Проверка и завершение незавершенных транзакций
-     * @return true - если все транзакции завершены успешно, иначе false
+     * @brief Check and complete unfinished transactions
+     * @return true - if all transactions completed successfully, otherwise false
      *
-     * Обрабатывает специальные файлы транзакций (*.tmp, *.bak) и завершает
-     * незавершенные операции ввода-вывода для обеспечения целостности данных.
+     * Processes special transaction files (*.tmp, *.bak) and completes
+     * unfinished input/output operations to ensure data integrity.
      *
-     * \note Используется для гарантии завершения операций ввода-вывода перед выходом
-     * \warning Метод модифицирует файловую систему
+     * \note Used to guarantee completion of input/output operations before exit
+     * \warning Method modifies file system
      */
     static bool endTransaction();
 
     /*!
-     * @brief Запись буфера данных в файл
-     * @param fileName Имя файла для записи (полный путь)
-     * @param data Указатель на буфер с данными для записи
-     * @param size Размер данных в байтах
-     * @return true - если запись прошла успешно, иначе false
+     * @brief Write data buffer to file
+     * @param fileName File name for writing (full path)
+     * @param data Pointer to buffer with data for writing
+     * @param size Data size in bytes
+     * @return true - if write was successful, otherwise false
      *
-     * Выполняет атомарную операцию записи с блокировкой файловой системы.
-     * Файл открывается в режиме дозаписи ("a").
+     * Performs atomic write operation with file system locking.
+     * File opens in append mode ("a").
      *
-     * \note Автоматически уведомляет обработчики о начале/окончании операции
-     * \warning Не гарантирует атомарность при сбоях питания
+     * \note Automatically notifies handlers about start/end of operation
+     * \warning Doesn't guarantee atomicity on power failures
      */
     static bool writeBuffer(const char *fileName, uint8_t *data, uint32_t size);
 
-    /// Обработка JSON-команд работы с SPIFFS.
+    /// Process JSON commands for SPIFFS operations.
     /*!
-     * @brief Обработка команд JSON для управления файловой системой
+     * @brief Process JSON commands for file system management
      *
-     * Поддерживаемые команды:
-     * - "ls": Получение списка файлов в директории (с пагинацией)
-     * - "rd": Чтение бинарного содержимого файла
-     * - "rm": Удаление файла
-     * - "trans": Управление транзакциями ("end"/"cancel")
-     * - "old"/"new": Переименование файла
-     * - "wr": Запись бинарных данных в файл
-     * - "ct": Создание текстового файла
-     * - "at": Добавление текста в конец файла
-     * - "rt": Чтение текстового файла
+     * Supported commands:
+     * - "ls": Get list of files in directory (with pagination)
+     * - "rd": Read binary file content
+     * - "rm": Delete file
+     * - "trans": Transaction management ("end"/"cancel")
+     * - "old"/"new": Rename file
+     * - "wr": Write binary data to file
+     * - "ct": Create text file
+     * - "at": Append text to end of file
+     * - "rt": Read text file
      *
-     * @param cmd JSON-объект с командами работы с SPIFFS (ключ "spiffs" в корне)
-     * @param[out] answer JSON-объект с результатами выполнения команд
+     * @param cmd JSON object with SPIFFS commands (key "spiffs" at root)
+     * @param[out] answer JSON object with command execution results
      *
-     * \note Все операции с файлами обёрнуты в механизмы синхронизации
-     * \warning Некоторые операции могут быть длительными
+     * \note All file operations are wrapped in synchronization mechanisms
+     * \warning Some operations may be time-consuming
      */
     static void command(json &cmd, json &answer);
 
     /*!
-     * @brief Добавление обработчика события работы с SPIFFS
-     * @param event Указатель на функцию-обработчик
+     * @brief Add SPIFFS work event handler
+     * @param event Pointer to handler function
      *
-     * Регистрирует функцию, которая будет вызываться при начале/окончании
-     * операций записи в файловую систему. Проверяет уникальность обработчика.
+     * Registers function that will be called at start/end of
+     * file system write operations. Checks handler uniqueness.
      *
-     * \note Обработчик вызывается синхронно в контексте вызывающего потока
-     * \warning Необходимо корректно освобождать память обработчика
+     * \note Handler is called synchronously in calling thread context
+     * \warning Must properly free handler memory
      */
     static void addWriteEvent(onSpiffsWork *event);
 
     /*!
-     * @brief Удаление обработчика события работы с SPIFFS
-     * @param event Указатель на функцию-обработчик
+     * @brief Remove SPIFFS work event handler
+     * @param event Pointer to handler function
      *
-     * Удаляет ранее добавленный обработчик из очереди уведомлений.
-     * Безопасно удаляет все дубликаты обработчика.
+     * Removes previously added handler from notification queue.
+     * Safely removes all handler duplicates.
      *
-     * \note Метод гарантирует удаление всех вхождений обработчика
-     * \warning После удаления обработчик должен быть корректно освобожден
+     * \note Method guarantees removal of all handler occurrences
+     * \warning After removal, handler must be properly freed
      */
     static void removeWriteEvent(onSpiffsWork *event);
 
     /**
-     * @brief Очищает содержимое файлов в указанной директории (при окончании транзакции)
+     * @brief Clears content of files in specified directory (at end of transaction)
      *
-     * Функция открывает все файлы в директории и маркирует их для стирания при завершении транзакции.
-     * Файлы с расширениями '!' и '$' игнорируются (считаются служебными).
+     * Function opens all files in directory and marks them for erasure at transaction end.
+     * Files with extensions '!' and '$' are ignored (considered service files).
      *
-     * @param dirName Путь к директории, содержимое файлов которой нужно очистить
-     * @return uint16_t Количество успешно очищенных файлов
+     * @param dirName Path to directory whose file content needs to be cleared
+     * @return uint16_t Number of successfully cleared files
      */
     static uint16_t clearDir(const char *dirName);
 };

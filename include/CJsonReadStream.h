@@ -1,7 +1,7 @@
 /*!
     \file
-    \brief Класс для обнаружения json строки из потока байтов.
-    \authors Близнец Р.А. (r.bliznets@gmail.com)
+    \brief Class for detecting JSON string from byte stream.
+    \authors Bliznets R.A. (r.bliznets@gmail.com)
     \version 1.0.0.0
     \date 18.04.2022
 */
@@ -13,60 +13,60 @@
 #include <cstring>
 #include <list>
 
-/// Класс для обнаружения и извлечения JSON строк из потока байтов.
+/// Class for detecting and extracting JSON strings from byte stream.
 /*!
-  Класс анализирует поток байтов, отслеживает баланс фигурных скобок { и }
-  для выделения полных JSON объектов. Поддерживает обработку фрагментированных данных
-  и накопление неполных объектов во временный буфер.
+  Class analyzes byte stream, tracks balance of curly braces { and }
+  to extract complete JSON objects. Supports processing fragmented data
+  and accumulating incomplete objects in temporary buffer.
 */
 class CJsonReadStream
 {
 protected:
-  uint8_t *mBuf = nullptr; ///< Буфер для хранения неполных JSON объектов между вызовами
-  uint16_t mBufIndex;      ///< Текущий индекс (размер) данных в буфере
-  uint16_t mSize;          ///< Максимальный размер буфера для неполных объектов
-  bool mFree;              ///< Флаг автоматического освобождения памяти буфера
+  uint8_t *mBuf = nullptr; ///< Buffer for storing incomplete JSON objects between calls
+  uint16_t mBufIndex;      ///< Current index (size) of data in buffer
+  uint16_t mSize;          ///< Maximum buffer size for incomplete objects
+  bool mFree;              ///< Automatic buffer memory deallocation flag
 
-  uint16_t mCount = 0;             ///< Счетчик непарных открывающих скобок { (баланс скобок)
-  std::list<std::string> mStrings; ///< Очередь найденных и полных JSON строк
+  uint16_t mCount = 0;             ///< Counter of unmatched opening braces { (bracket balance)
+  std::list<std::string> mStrings; ///< Queue of found and complete JSON strings
 
 public:
-  /// Конструктор класса.
+  /// Constructor for class.
   /*!
-    \param[in] max_size Максимальный размер буфера для хранения неполных JSON объектов
-    \param[in] auto_free Флаг автоматического освобождения памяти буфера (по умолчанию true)
+    \param[in] max_size Maximum buffer size for storing incomplete JSON objects
+    \param[in] auto_free Automatic buffer memory deallocation flag (default true)
   */
   CJsonReadStream(uint16_t max_size, bool auto_free = true);
-  
-  /// Деструктор класса.
+
+  /// Destructor for class.
   /*!
-    Освобождает память буфера и очищает список найденных JSON строк.
+    Frees buffer memory and clears list of found JSON strings.
   */
   ~CJsonReadStream();
 
-  /// Очистить буфер и освободить память.
+  /// Clear buffer and free memory.
   /*!
-    Принудительно освобождает память временного буфера и сбрасывает состояние класса.
+    Forcefully frees temporary buffer memory and resets class state.
   */
   void free();
-  
-  /// Добавить данные для обработки и поиска JSON объектов.
+
+  /// Add data for processing and JSON object search.
   /*!
-    Анализирует поток байтов, отслеживает баланс фигурных скобок и выделяет полные JSON объекты.
-    Неполные объекты сохраняются во временный буфер для последующей обработки.
-    
-    \param[in] data Указатель на массив байтов для анализа
-    \param[in] size Размер данных в байтах
-    \return true если есть незавершенные JSON объекты (ожидаются еще данные), false если все объекты завершены
+    Analyzes byte stream, tracks balance of curly braces and extracts complete JSON objects.
+    Incomplete objects are saved to temporary buffer for subsequent processing.
+
+    \param[in] data Pointer to byte array for analysis
+    \param[in] size Data size in bytes
+    \return true if there are incomplete JSON objects (awaiting more data), false if all objects are completed
   */
   bool add(uint8_t *data, uint16_t size);
-  
-  /// Получить следующую найденную JSON строку.
+
+  /// Get next found JSON string.
   /*!
-    Извлекает первую найденную JSON строку из очереди и удаляет её из списка.
-    
-    \param[out] str Ссылка на строку, куда будет записана найденная JSON строка
-    \return true если строка успешно получена, false если очередь пуста
+    Extracts first found JSON string from queue and removes it from list.
+
+    \param[out] str Reference to string where found JSON string will be written
+    \return true if string successfully obtained, false if queue is empty
   */
   bool get(std::string &str);
 };
