@@ -37,10 +37,10 @@ private:
 	static bool writeValueToNamespace(const char *ns, const std::string &key, T value);
 
 	template <typename T>
-	static uint16_t saveValue(std::string &name, T value, uint16_t mode);
+	static uint16_t saveValue(const std::string &name, T value, uint16_t mode);
 
 	template <typename T>
-	static uint16_t restoreValue(std::string &name, T &value, bool copy);
+	static uint16_t restoreValue(const std::string &name, T &value, bool copy);
 
 	/**
 	 * @brief Writes a string to the specified NVS namespace.
@@ -71,7 +71,7 @@ private:
 	 * @param mode Save mode (MAIN, BACKUP, BOTH)
 	 * @return Result of save operation (NVS_MAIN, NVS_BACKUP, NVS_BOTH, NVS_NONE)
 	 */
-	static uint16_t saveString(std::string &name, const std::string &value, uint16_t mode);
+	static uint16_t saveString(const std::string &name, const std::string &value, uint16_t mode);
 
 	/**
 	 * @brief Saves binary data to NVS with backup storage support.
@@ -82,7 +82,7 @@ private:
 	 * @param mode Save mode
 	 * @return Result of save operation
 	 */
-	static uint16_t saveBlob(std::string &name, const uint8_t *data, size_t length, uint16_t mode);
+	static uint16_t saveBlob(const std::string &name, const uint8_t *data, size_t length, uint16_t mode);
 
 	/**
 	 * @brief Restores a string from NVS with backup storage support.
@@ -92,7 +92,7 @@ private:
 	 * @param copy If true, value from backup will be copied to main
 	 * @return Result of restore operation
 	 */
-	static uint16_t restoreString(std::string &name, std::string &value, bool copy);
+	static uint16_t restoreString(const std::string &name, std::string &value, bool copy);
 
 	/**
 	 * @brief Restores binary data from NVS with backup storage support.
@@ -102,7 +102,7 @@ private:
 	 * @param copy If true, value from backup will be copied to main
 	 * @return Result of restore operation
 	 */
-	static uint16_t restoreBlob(std::string &name, std::vector<uint8_t> &data, bool copy);
+	static uint16_t restoreBlob(const std::string &name, std::vector<uint8_t> &data, bool copy);
 
 public:
 	/**
@@ -145,7 +145,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, uint8_t value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, uint8_t value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save int8_t value to NVS.
@@ -154,7 +154,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, int8_t value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, int8_t value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save uint16_t value to NVS.
@@ -163,7 +163,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, uint16_t value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, uint16_t value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save int16_t value to NVS.
@@ -172,7 +172,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, int16_t value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, int16_t value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save uint32_t value to NVS.
@@ -181,7 +181,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, uint32_t value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, uint32_t value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save int32_t value to NVS.
@@ -190,7 +190,25 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, int32_t value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, int32_t value, uint16_t mode = NVS_MAIN);
+
+	/**
+	 * @brief Save uint64_t value to NVS.
+	 * @param name Variable name
+	 * @param value Value to save
+	 * @param mode Save mode (default: NVS_MAIN)
+	 * @return Result of save operation
+	 */
+	static uint16_t save(const std::string &name, uint64_t value, uint16_t mode = NVS_MAIN);
+
+	/**
+	 * @brief Save int64_t value to NVS.
+	 * @param name Variable name
+	 * @param value Value to save
+	 * @param mode Save mode (default: NVS_MAIN)
+	 * @return Result of save operation
+	 */
+	static uint16_t save(const std::string &name, int64_t value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save float value to NVS.
@@ -199,7 +217,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, float value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, float value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save double value to NVS.
@@ -208,7 +226,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, double value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, double value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save std::string value to NVS.
@@ -217,7 +235,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, const std::string &value, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, const std::string &value, uint16_t mode = NVS_MAIN);
 
 	/**
 	 * @brief Save std::vector<uint8_t> value to NVS.
@@ -226,7 +244,7 @@ public:
 	 * @param mode Save mode (default: NVS_MAIN)
 	 * @return Result of save operation
 	 */
-	static uint16_t save(std::string &name, const std::vector<uint8_t> &data, uint16_t mode = NVS_MAIN);
+	static uint16_t save(const std::string &name, const std::vector<uint8_t> &data, uint16_t mode = NVS_MAIN);
 
 	// Restore methods
 	/**
@@ -236,7 +254,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, uint8_t &value, bool copy = true);
+	static uint16_t restore(const std::string &name, uint8_t &value, bool copy = true);
 
 	/**
 	 * @brief Restore int8_t value from NVS.
@@ -245,7 +263,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, int8_t &value, bool copy = true);
+	static uint16_t restore(const std::string &name, int8_t &value, bool copy = true);
 
 	/**
 	 * @brief Restore uint16_t value from NVS.
@@ -254,7 +272,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, uint16_t &value, bool copy = true);
+	static uint16_t restore(const std::string &name, uint16_t &value, bool copy = true);
 
 	/**
 	 * @brief Restore int16_t value from NVS.
@@ -263,7 +281,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, int16_t &value, bool copy = true);
+	static uint16_t restore(const std::string &name, int16_t &value, bool copy = true);
 
 	/**
 	 * @brief Restore uint32_t value from NVS.
@@ -272,7 +290,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, uint32_t &value, bool copy = true);
+	static uint16_t restore(const std::string &name, uint32_t &value, bool copy = true);
 
 	/**
 	 * @brief Restore int32_t value from NVS.
@@ -281,7 +299,25 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, int32_t &value, bool copy = true);
+	static uint16_t restore(const std::string &name, int32_t &value, bool copy = true);
+
+	/**
+	 * @brief Restore uint64_t value from NVS.
+	 * @param name Variable name
+	 * @param value Variable to receive the value
+	 * @param copy If true, value from backup will be copied to main (default: true)
+	 * @return Result of restore operation
+	 */
+	static uint16_t restore(const std::string &name, uint64_t &value, bool copy = true);
+
+	/**
+	 * @brief Restore int64_t value from NVS.
+	 * @param name Variable name
+	 * @param value Variable to receive the value
+	 * @param copy If true, value from backup will be copied to main (default: true)
+	 * @return Result of restore operation
+	 */
+	static uint16_t restore(const std::string &name, int64_t &value, bool copy = true);
 
 	/**
 	 * @brief Restore float value from NVS.
@@ -290,7 +326,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, float &value, bool copy = true);
+	static uint16_t restore(const std::string &name, float &value, bool copy = true);
 
 	/**
 	 * @brief Restore double value from NVS.
@@ -299,7 +335,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, double &value, bool copy = true);
+	static uint16_t restore(const std::string &name, double &value, bool copy = true);
 
 	/**
 	 * @brief Restore std::string value from NVS.
@@ -308,7 +344,7 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, std::string &value, bool copy = true);
+	static uint16_t restore(const std::string &name, std::string &value, bool copy = true);
 
 	/**
 	 * @brief Restore std::vector<uint8_t> value from NVS.
@@ -317,5 +353,5 @@ public:
 	 * @param copy If true, value from backup will be copied to main (default: true)
 	 * @return Result of restore operation
 	 */
-	static uint16_t restore(std::string &name, std::vector<uint8_t> &data, bool copy = true);
+	static uint16_t restore(const std::string &name, std::vector<uint8_t> &data, bool copy = true);
 };

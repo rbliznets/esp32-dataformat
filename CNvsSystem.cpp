@@ -106,7 +106,7 @@ bool CNvsSystem::writeBlobToNamespace(const char *ns, const std::string &key, co
  * @param mode Save mode (MAIN, BACKUP, BOTH)
  * @return Save result (NVS_MAIN, NVS_BACKUP, NVS_BOTH, NVS_NONE)
  */
-uint16_t CNvsSystem::saveString(std::string &name, const std::string &value, uint16_t mode)
+uint16_t CNvsSystem::saveString(const std::string &name, const std::string &value, uint16_t mode)
 {
 	if ((mode & NVS_MAIN) != 0)
 	{
@@ -138,7 +138,7 @@ uint16_t CNvsSystem::saveString(std::string &name, const std::string &value, uin
  * @param mode Save mode
  * @return Save result
  */
-uint16_t CNvsSystem::saveBlob(std::string &name, const uint8_t *data, size_t length, uint16_t mode)
+uint16_t CNvsSystem::saveBlob(const std::string &name, const uint8_t *data, size_t length, uint16_t mode)
 {
 	if ((mode & NVS_MAIN) != 0)
 	{
@@ -168,7 +168,7 @@ uint16_t CNvsSystem::saveBlob(std::string &name, const uint8_t *data, size_t len
  * @param copy If true, value from backup will be copied to main
  * @return Restore result
  */
-uint16_t CNvsSystem::restoreString(std::string &name, std::string &value, bool copy)
+uint16_t CNvsSystem::restoreString(const std::string &name, std::string &value, bool copy)
 {
 	nvs_handle_t nvs_handle;
 	esp_err_t err;
@@ -224,7 +224,7 @@ uint16_t CNvsSystem::restoreString(std::string &name, std::string &value, bool c
  * @param copy If true, value from backup will be copied to main
  * @return Restore result
  */
-uint16_t CNvsSystem::restoreBlob(std::string &name, std::vector<uint8_t> &data, bool copy)
+uint16_t CNvsSystem::restoreBlob(const std::string &name, std::vector<uint8_t> &data, bool copy)
 {
 	nvs_handle_t nvs_handle;
 	esp_err_t err;
@@ -274,11 +274,11 @@ uint16_t CNvsSystem::restoreBlob(std::string &name, std::vector<uint8_t> &data, 
 }
 
 // === Public methods for strings and blob ===
-uint16_t CNvsSystem::save(std::string &name, const std::string &value, uint16_t mode) { return saveString(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, const std::vector<uint8_t> &data, uint16_t mode) { return saveBlob(name, data.data(), data.size(), mode); }
+uint16_t CNvsSystem::save(const std::string &name, const std::string &value, uint16_t mode) { return saveString(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, const std::vector<uint8_t> &data, uint16_t mode) { return saveBlob(name, data.data(), data.size(), mode); }
 
-uint16_t CNvsSystem::restore(std::string &name, std::string &value, bool copy) { return restoreString(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, std::vector<uint8_t> &data, bool copy) { return restoreBlob(name, data, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, std::string &value, bool copy) { return restoreString(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, std::vector<uint8_t> &data, bool copy) { return restoreBlob(name, data, copy); }
 
 // === Template methods for numeric types ===
 
@@ -325,6 +325,14 @@ bool CNvsSystem::writeValueToNamespace(const char *ns, const std::string &key, T
 	{
 		err = nvs_set_i32(nvs_handle, key.c_str(), value);
 	}
+	else if constexpr (std::is_same_v<T, uint64_t>)
+	{
+		err = nvs_set_u64(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, int64_t>)
+	{
+		err = nvs_set_i64(nvs_handle, key.c_str(), value);
+	}
 	else if constexpr (std::is_same_v<T, float>)
 	{
 		uint32_t raw = 0;
@@ -370,7 +378,7 @@ bool CNvsSystem::writeValueToNamespace(const char *ns, const std::string &key, T
  * @return Save result
  */
 template <typename T>
-uint16_t CNvsSystem::saveValue(std::string &name, T value, uint16_t mode)
+uint16_t CNvsSystem::saveValue(const std::string &name, T value, uint16_t mode)
 {
 	if ((mode & NVS_MAIN) != 0)
 	{
@@ -402,7 +410,7 @@ uint16_t CNvsSystem::saveValue(std::string &name, T value, uint16_t mode)
  * @return Restore result
  */
 template <typename T>
-uint16_t CNvsSystem::restoreValue(std::string &name, T &value, bool copy)
+uint16_t CNvsSystem::restoreValue(const std::string &name, T &value, bool copy)
 {
 	nvs_handle_t nvs_handle;
 	esp_err_t err;
@@ -433,6 +441,14 @@ uint16_t CNvsSystem::restoreValue(std::string &name, T &value, bool copy)
 		else if constexpr (std::is_same_v<T, int32_t>)
 		{
 			err = nvs_get_i32(nvs_handle, name.c_str(), reinterpret_cast<int32_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, uint64_t>)
+		{
+			err = nvs_get_u64(nvs_handle, name.c_str(), reinterpret_cast<uint64_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, int64_t>)
+		{
+			err = nvs_get_i64(nvs_handle, name.c_str(), reinterpret_cast<int64_t *>(&value));
 		}
 		else if constexpr (std::is_same_v<T, float>)
 		{
@@ -488,6 +504,14 @@ uint16_t CNvsSystem::restoreValue(std::string &name, T &value, bool copy)
 			{
 				err = nvs_get_i32(nvs_handle, name.c_str(), reinterpret_cast<int32_t *>(&value));
 			}
+			else if constexpr (std::is_same_v<T, uint64_t>)
+			{
+				err = nvs_get_u64(nvs_handle, name.c_str(), reinterpret_cast<uint64_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, int64_t>)
+			{
+				err = nvs_get_i64(nvs_handle, name.c_str(), reinterpret_cast<int64_t *>(&value));
+			}
 			else if constexpr (std::is_same_v<T, float>)
 			{
 				uint32_t raw = 0;
@@ -520,23 +544,27 @@ uint16_t CNvsSystem::restoreValue(std::string &name, T &value, bool copy)
 }
 
 // === Public numeric methods ===
-uint16_t CNvsSystem::save(std::string &name, uint8_t value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, int8_t value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, uint16_t value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, int16_t value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, uint32_t value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, int32_t value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, float value, uint16_t mode) { return saveValue(name, value, mode); }
-uint16_t CNvsSystem::save(std::string &name, double value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, uint8_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, int8_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, uint16_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, int16_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, uint32_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, int32_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, uint64_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, int64_t value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, float value, uint16_t mode) { return saveValue(name, value, mode); }
+uint16_t CNvsSystem::save(const std::string &name, double value, uint16_t mode) { return saveValue(name, value, mode); }
 
-uint16_t CNvsSystem::restore(std::string &name, uint8_t &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, int8_t &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, uint16_t &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, int16_t &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, uint32_t &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, int32_t &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, float &value, bool copy) { return restoreValue(name, value, copy); }
-uint16_t CNvsSystem::restore(std::string &name, double &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, uint8_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, int8_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, uint16_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, int16_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, uint32_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, int32_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, uint64_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, int64_t &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, float &value, bool copy) { return restoreValue(name, value, copy); }
+uint16_t CNvsSystem::restore(const std::string &name, double &value, bool copy) { return restoreValue(name, value, copy); }
 
 /**
  * @brief Initialize NVS (Non-Volatile Storage) memory
@@ -572,8 +600,7 @@ bool CNvsSystem::init()
 		{
 			nvs2 = true;
 			uint8_t lock = 0;
-			std::string str = "lock";
-			uint16_t res = restore(str, lock, false); // Don't copy, just read
+			uint16_t res = restore("lock", lock, false); // Don't copy, just read
 			nvs2_lock = ((res != NVS_NONE) && (lock > 0));
 		}
 	}
@@ -899,8 +926,7 @@ void CNvsSystem::command(json &cmd, json &answer)
 			if (cmd["nvs"].contains("lock"))
 			{
 				uint8_t lock = 1;
-				std::string str = "lock";
-				uint16_t res = save(str, lock, NVS_BACKUP);
+				uint16_t res = save("lock", lock, NVS_BACKUP);
 				answer["nvs"]["lock"] = res;
 				nvs2_lock = true;
 			}

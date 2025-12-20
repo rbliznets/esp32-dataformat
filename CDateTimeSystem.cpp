@@ -9,7 +9,7 @@
 #include "CDateTimeSystem.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include "nvs.h"
+#include "CNvsSystem.h"
 #include "esp_system.h"
 
 bool CDateTimeSystem::mSync = false; ///< Time synchronization flag (true - time is synchronized)
@@ -26,21 +26,9 @@ void CDateTimeSystem::init()
 	if (mSync)
 		return;
 
-	nvs_handle_t nvs_handle;
 	time_t now = 1726208190; // Default time (backup value)
 
-	// Open NVS for reading saved time
-	esp_err_t err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
-	if (err == ESP_OK)
-	{
-		// Read saved time from NVS
-		nvs_get_i64(nvs_handle, "timestamp", &now);
-		nvs_close(nvs_handle);
-	}
-	else
-	{
-		ESP_LOGE("DateTimeSystem", "Failed to open NVS %d", err);
-	}
+	CNvsSystem::restore("timestamp", now);
 
 	// Set system time
 	timeval t = {.tv_sec = now, .tv_usec = 0};
@@ -101,24 +89,10 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force, bool approximate)
  */
 bool CDateTimeSystem::saveDateTime()
 {
-	nvs_handle_t nvs_handle;
+	timeval tv_start;
+	gettimeofday(&tv_start, nullptr);
 
-	// Open NVS for writing
-	if (nvs_open("nvs", NVS_READWRITE, &nvs_handle) == ESP_OK)
-	{
-		timeval tv_start;
-		gettimeofday(&tv_start, nullptr);
-
-		// Save current time to NVS
-		if (nvs_set_i64(nvs_handle, "timestamp", tv_start.tv_sec) == ESP_OK)
-		{
-			nvs_commit(nvs_handle); // Confirm write
-			nvs_close(nvs_handle);
-			return true;
-		}
-		nvs_close(nvs_handle);
-	}
-	return false;
+	return (CNvsSystem::save("timestamp", tv_start.tv_sec, NVS_BOTH) != NVS_NONE);
 }
 
 /**
