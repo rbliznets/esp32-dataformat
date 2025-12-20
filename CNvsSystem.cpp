@@ -13,347 +13,513 @@
 #include "nvs.h"
 #include "esp_system.h"
 
+// Depends on json, assuming it's declared globally or in header
+using json = nlohmann::json; // Example, if using nlohmann/json
+
 static const char *TAG = "nvs";
 
+// Static class members
 bool CNvsSystem::nvs2 = false;
 bool CNvsSystem::nvs2_lock = true;
 
+// Need to include headers for templates
 #include <type_traits>
 #include <cstring>
 
-// === Специальные функции для строк и blob ===
+// === Special functions for strings and blob ===
 
-bool CNvsSystem::writeStringToNamespace(const char* ns, const std::string& key, const std::string& value)
+/**
+ * @brief Writes a string to the specified NVS namespace
+ * @param ns Namespace ("nvs", "nvs2")
+ * @param key Key (variable name)
+ * @param value String value
+ * @return true on success, false otherwise
+ */
+bool CNvsSystem::writeStringToNamespace(const char *ns, const std::string &key, const std::string &value)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(ns, NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        return false;
-    }
+	nvs_handle_t nvs_handle;
+	esp_err_t err = nvs_open(ns, NVS_READWRITE, &nvs_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to open NVS namespace %s: %s", ns, esp_err_to_name(err));
+		return false;
+	}
 
-    err = nvs_set_str(nvs_handle, key.c_str(), value.c_str());
-    if (err != ESP_OK) {
-        nvs_close(nvs_handle);
-        return false;
-    }
+	err = nvs_set_str(nvs_handle, key.c_str(), value.c_str());
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to set string '%s' in %s: %s", key.c_str(), ns, esp_err_to_name(err));
+		nvs_close(nvs_handle);
+		return false;
+	}
 
-    err = nvs_commit(nvs_handle);
-    nvs_close(nvs_handle);
-    return (err == ESP_OK);
+	err = nvs_commit(nvs_handle);
+	nvs_close(nvs_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to commit changes in %s: %s", ns, esp_err_to_name(err));
+		return false;
+	}
+	return true;
 }
 
-bool CNvsSystem::writeBlobToNamespace(const char* ns, const std::string& key, const uint8_t* data, size_t length)
+/**
+ * @brief Writes binary data to the specified NVS namespace
+ * @param ns Namespace ("nvs", "nvs2")
+ * @param key Key (variable name)
+ * @param data Pointer to binary data
+ * @param length Size of data
+ * @return true on success, false otherwise
+ */
+bool CNvsSystem::writeBlobToNamespace(const char *ns, const std::string &key, const uint8_t *data, size_t length)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(ns, NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        return false;
-    }
+	nvs_handle_t nvs_handle;
+	esp_err_t err = nvs_open(ns, NVS_READWRITE, &nvs_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to open NVS namespace %s: %s", ns, esp_err_to_name(err));
+		return false;
+	}
 
-    err = nvs_set_blob(nvs_handle, key.c_str(), data, length);
-    if (err != ESP_OK) {
-        nvs_close(nvs_handle);
-        return false;
-    }
+	err = nvs_set_blob(nvs_handle, key.c_str(), data, length);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to set blob '%s' in %s: %s", key.c_str(), ns, esp_err_to_name(err));
+		nvs_close(nvs_handle);
+		return false;
+	}
 
-    err = nvs_commit(nvs_handle);
-    nvs_close(nvs_handle);
-    return (err == ESP_OK);
+	err = nvs_commit(nvs_handle);
+	nvs_close(nvs_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to commit changes in %s: %s", ns, esp_err_to_name(err));
+		return false;
+	}
+	return true;
 }
 
+/**
+ * @brief Saves a string to NVS with backup storage support
+ * @param name Variable name
+ * @param value String value
+ * @param mode Save mode (MAIN, BACKUP, BOTH)
+ * @return Save result (NVS_MAIN, NVS_BACKUP, NVS_BOTH, NVS_NONE)
+ */
 uint16_t CNvsSystem::saveString(std::string &name, const std::string &value, uint16_t mode)
 {
-    if ((mode & NVS_MAIN) != 0)
-    {
-        if (!writeStringToNamespace("nvs", name, value)) {
-            return NVS_NONE;
-        }
-    }
+	if ((mode & NVS_MAIN) != 0)
+	{
+		if (!writeStringToNamespace("nvs", name, value))
+		{
+			return NVS_NONE;
+		}
+	}
 
-    if (((mode & NVS_BACKUP) == 0) || !nvs2)
-    {
-        return mode;
-    }
+	// Check: is backup allowed, is nvs2 available, and is it not locked
+	if (((mode & NVS_BACKUP) == 0) || !nvs2 || nvs2_lock)
+	{
+		return mode;
+	}
 
-    if (!writeStringToNamespace("nvs2", name, value)) {
-        return mode & NVS_MAIN;
-    }
+	if (!writeStringToNamespace("nvs2", name, value))
+	{
+		return mode & NVS_MAIN; // Main saved, backup failed
+	}
 
-    return mode;
+	return mode;
 }
 
-uint16_t CNvsSystem::saveBlob(std::string &name, const uint8_t* data, size_t length, uint16_t mode)
+/**
+ * @brief Saves binary data to NVS with backup storage support
+ * @param name Variable name
+ * @param data Pointer to data
+ * @param length Size of data
+ * @param mode Save mode
+ * @return Save result
+ */
+uint16_t CNvsSystem::saveBlob(std::string &name, const uint8_t *data, size_t length, uint16_t mode)
 {
-    if ((mode & NVS_MAIN) != 0)
-    {
-        if (!writeBlobToNamespace("nvs", name, data, length)) {
-            return NVS_NONE;
-        }
-    }
+	if ((mode & NVS_MAIN) != 0)
+	{
+		if (!writeBlobToNamespace("nvs", name, data, length))
+		{
+			return NVS_NONE;
+		}
+	}
 
-    if (((mode & NVS_BACKUP) == 0) || !nvs2)
-    {
-        return mode;
-    }
+	if (((mode & NVS_BACKUP) == 0) || !nvs2 || nvs2_lock)
+	{
+		return mode;
+	}
 
-    if (!writeBlobToNamespace("nvs2", name, data, length)) {
-        return mode & NVS_MAIN;
-    }
+	if (!writeBlobToNamespace("nvs2", name, data, length))
+	{
+		return mode & NVS_MAIN;
+	}
 
-    return mode;
+	return mode;
 }
 
+/**
+ * @brief Restores a string from NVS with backup storage support
+ * @param name Variable name
+ * @param value Variable to receive the value
+ * @param copy If true, value from backup will be copied to main
+ * @return Restore result
+ */
 uint16_t CNvsSystem::restoreString(std::string &name, std::string &value, bool copy)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err;
+	nvs_handle_t nvs_handle;
+	esp_err_t err;
 
-    // Чтение из основного хранилища
-    err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
-    if (err == ESP_OK)
-    {
-        size_t len = 0;
-        err = nvs_get_str(nvs_handle, name.c_str(), nullptr, &len);
-        if (err == ESP_OK)
-        {
-            value.resize(len - 1); // -1 для null-терминатора
-            err = nvs_get_str(nvs_handle, name.c_str(), value.data(), &len);
-        }
-        nvs_close(nvs_handle);
-        if (err == ESP_OK) {
-            return NVS_MAIN;
-        }
-    }
+	// Reading from main storage
+	err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
+	if (err == ESP_OK)
+	{
+		size_t len = 0;
+		err = nvs_get_str(nvs_handle, name.c_str(), nullptr, &len);
+		if (err == ESP_OK)
+		{
+			value.resize(len - 1); // -1 for null-terminator
+			err = nvs_get_str(nvs_handle, name.c_str(), value.data(), &len);
+		}
+		nvs_close(nvs_handle);
+		if (err == ESP_OK)
+		{
+			return NVS_MAIN;
+		}
+	}
 
-    // Чтение из резервного хранилища
-    if (nvs2)
-    {
-        err = nvs_open("nvs2", NVS_READONLY, &nvs_handle);
-        if (err == ESP_OK)
-        {
-            size_t len = 0;
-            err = nvs_get_str(nvs_handle, name.c_str(), nullptr, &len);
-            if (err == ESP_OK)
-            {
-                value.resize(len - 1);
-                err = nvs_get_str(nvs_handle, name.c_str(), value.data(), &len);
-            }
-            nvs_close(nvs_handle);
-            if (err == ESP_OK) {
-                if (copy)
-                    saveString(name, value, NVS_MAIN);
-                return NVS_BACKUP;
-            }
-        }
-    }
+	// Reading from backup storage
+	if (nvs2)
+	{
+		err = nvs_open("nvs2", NVS_READONLY, &nvs_handle);
+		if (err == ESP_OK)
+		{
+			size_t len = 0;
+			err = nvs_get_str(nvs_handle, name.c_str(), nullptr, &len);
+			if (err == ESP_OK)
+			{
+				value.resize(len - 1);
+				err = nvs_get_str(nvs_handle, name.c_str(), value.data(), &len);
+			}
+			nvs_close(nvs_handle);
+			if (err == ESP_OK)
+			{
+				if (copy)
+					saveString(name, value, NVS_MAIN);
+				return NVS_BACKUP;
+			}
+		}
+	}
 
-    return NVS_NONE;
+	return NVS_NONE;
 }
 
+/**
+ * @brief Restores binary data from NVS with backup storage support
+ * @param name Variable name
+ * @param data Vector to receive binary data
+ * @param copy If true, value from backup will be copied to main
+ * @return Restore result
+ */
 uint16_t CNvsSystem::restoreBlob(std::string &name, std::vector<uint8_t> &data, bool copy)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err;
+	nvs_handle_t nvs_handle;
+	esp_err_t err;
 
-    // Чтение из основного хранилища
-    err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
-    if (err == ESP_OK)
-    {
-        size_t len = 0;
-        err = nvs_get_blob(nvs_handle, name.c_str(), nullptr, &len);
-        if (err == ESP_OK)
-        {
-            data.resize(len);
-            err = nvs_get_blob(nvs_handle, name.c_str(), data.data(), &len);
-        }
-        nvs_close(nvs_handle);
-        if (err == ESP_OK) {
-            return NVS_MAIN;
-        }
-    }
+	// Reading from main storage
+	err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
+	if (err == ESP_OK)
+	{
+		size_t len = 0;
+		err = nvs_get_blob(nvs_handle, name.c_str(), nullptr, &len);
+		if (err == ESP_OK)
+		{
+			data.resize(len);
+			err = nvs_get_blob(nvs_handle, name.c_str(), data.data(), &len);
+		}
+		nvs_close(nvs_handle);
+		if (err == ESP_OK)
+		{
+			return NVS_MAIN;
+		}
+	}
 
-    // Чтение из резервного хранилища
-    if (nvs2)
-    {
-        err = nvs_open("nvs2", NVS_READONLY, &nvs_handle);
-        if (err == ESP_OK)
-        {
-            size_t len = 0;
-            err = nvs_get_blob(nvs_handle, name.c_str(), nullptr, &len);
-            if (err == ESP_OK)
-            {
-                data.resize(len);
-                err = nvs_get_blob(nvs_handle, name.c_str(), data.data(), &len);
-            }
-            nvs_close(nvs_handle);
-            if (err == ESP_OK) {
-                if (copy)
-                    saveBlob(name, data.data(), data.size(), NVS_MAIN);
-                return NVS_BACKUP;
-            }
-        }
-    }
+	// Reading from backup storage
+	if (nvs2)
+	{
+		err = nvs_open("nvs2", NVS_READONLY, &nvs_handle);
+		if (err == ESP_OK)
+		{
+			size_t len = 0;
+			err = nvs_get_blob(nvs_handle, name.c_str(), nullptr, &len);
+			if (err == ESP_OK)
+			{
+				data.resize(len);
+				err = nvs_get_blob(nvs_handle, name.c_str(), data.data(), &len);
+			}
+			nvs_close(nvs_handle);
+			if (err == ESP_OK)
+			{
+				if (copy)
+					saveBlob(name, data.data(), data.size(), NVS_MAIN);
+				return NVS_BACKUP;
+			}
+		}
+	}
 
-    return NVS_NONE;
+	return NVS_NONE;
 }
 
-// Публичные методы для строк и blob
+// === Public methods for strings and blob ===
 uint16_t CNvsSystem::save(std::string &name, const std::string &value, uint16_t mode) { return saveString(name, value, mode); }
 uint16_t CNvsSystem::save(std::string &name, const std::vector<uint8_t> &data, uint16_t mode) { return saveBlob(name, data.data(), data.size(), mode); }
 
 uint16_t CNvsSystem::restore(std::string &name, std::string &value, bool copy) { return restoreString(name, value, copy); }
 uint16_t CNvsSystem::restore(std::string &name, std::vector<uint8_t> &data, bool copy) { return restoreBlob(name, data, copy); }
 
-// Числовые методы — шаблонные
-template<typename T>
-bool CNvsSystem::writeValueToNamespace(const char* ns, const std::string& key, T value)
+// === Template methods for numeric types ===
+
+/**
+ * @brief Writes a numeric value to the specified NVS namespace
+ * @tparam T Value type (uint8_t, float, double, etc.)
+ * @param ns Namespace
+ * @param key Key
+ * @param value Value
+ * @return true on success
+ */
+template <typename T>
+bool CNvsSystem::writeValueToNamespace(const char *ns, const std::string &key, T value)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(ns, NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        return false;
-    }
+	nvs_handle_t nvs_handle;
+	esp_err_t err = nvs_open(ns, NVS_READWRITE, &nvs_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to open NVS namespace %s: %s", ns, esp_err_to_name(err));
+		return false;
+	}
 
-    if constexpr (std::is_same_v<T, uint8_t>) {
-        err = nvs_set_u8(nvs_handle, key.c_str(), value);
-    } else if constexpr (std::is_same_v<T, int8_t>) {
-        err = nvs_set_i8(nvs_handle, key.c_str(), value);
-    } else if constexpr (std::is_same_v<T, uint16_t>) {
-        err = nvs_set_u16(nvs_handle, key.c_str(), value);
-    } else if constexpr (std::is_same_v<T, int16_t>) {
-        err = nvs_set_i16(nvs_handle, key.c_str(), value);
-    } else if constexpr (std::is_same_v<T, uint32_t>) {
-        err = nvs_set_u32(nvs_handle, key.c_str(), value);
-    } else if constexpr (std::is_same_v<T, int32_t>) {
-        err = nvs_set_i32(nvs_handle, key.c_str(), value);
-    } else if constexpr (std::is_same_v<T, float>) {
-        uint32_t raw = 0;
-        std::memcpy(&raw, &value, sizeof(float));
-        err = nvs_set_u32(nvs_handle, key.c_str(), raw);
-    } else if constexpr (std::is_same_v<T, double>) {
-        uint64_t raw = 0;
-        std::memcpy(&raw, &value, sizeof(double));
-        err = nvs_set_u64(nvs_handle, key.c_str(), raw);
-    } else {
-        nvs_close(nvs_handle);
-        return false;
-    }
+	if constexpr (std::is_same_v<T, uint8_t>)
+	{
+		err = nvs_set_u8(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, int8_t>)
+	{
+		err = nvs_set_i8(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, uint16_t>)
+	{
+		err = nvs_set_u16(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, int16_t>)
+	{
+		err = nvs_set_i16(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, uint32_t>)
+	{
+		err = nvs_set_u32(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, int32_t>)
+	{
+		err = nvs_set_i32(nvs_handle, key.c_str(), value);
+	}
+	else if constexpr (std::is_same_v<T, float>)
+	{
+		uint32_t raw = 0;
+		std::memcpy(&raw, &value, sizeof(float));
+		err = nvs_set_u32(nvs_handle, key.c_str(), raw);
+	}
+	else if constexpr (std::is_same_v<T, double>)
+	{
+		uint64_t raw = 0;
+		std::memcpy(&raw, &value, sizeof(double));
+		err = nvs_set_u64(nvs_handle, key.c_str(), raw);
+	}
+	else
+	{
+		ESP_LOGE(TAG, "Unsupported type for NVS storage");
+		nvs_close(nvs_handle);
+		return false;
+	}
 
-    if (err != ESP_OK) {
-        nvs_close(nvs_handle);
-        return false;
-    }
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to set value for key '%s' in %s: %s", key.c_str(), ns, esp_err_to_name(err));
+		nvs_close(nvs_handle);
+		return false;
+	}
 
-    err = nvs_commit(nvs_handle);
-    nvs_close(nvs_handle);
-    return (err == ESP_OK);
+	err = nvs_commit(nvs_handle);
+	nvs_close(nvs_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to commit changes in %s: %s", ns, esp_err_to_name(err));
+		return false;
+	}
+	return true;
 }
 
-template<typename T>
+/**
+ * @brief Saves a numeric value to NVS with backup storage support
+ * @tparam T Value type
+ * @param name Variable name
+ * @param value Value
+ * @param mode Save mode
+ * @return Save result
+ */
+template <typename T>
 uint16_t CNvsSystem::saveValue(std::string &name, T value, uint16_t mode)
 {
-    if ((mode & NVS_MAIN) != 0)
-    {
-        if (!writeValueToNamespace("nvs", name, value)) {
-            return NVS_NONE;
-        }
-    }
+	if ((mode & NVS_MAIN) != 0)
+	{
+		if (!writeValueToNamespace("nvs", name, value))
+		{
+			return NVS_NONE;
+		}
+	}
 
-    if (((mode & NVS_BACKUP) == 0) || !nvs2)
-    {
-        return mode;
-    }
+	if (((mode & NVS_BACKUP) == 0) || !nvs2 || nvs2_lock)
+	{
+		return mode;
+	}
 
-    if (!writeValueToNamespace("nvs2", name, value)) {
-        return mode & NVS_MAIN;
-    }
+	if (!writeValueToNamespace("nvs2", name, value))
+	{
+		return mode & NVS_MAIN;
+	}
 
-    return mode;
+	return mode;
 }
 
-template<typename T>
+/**
+ * @brief Restores a numeric value from NVS with backup storage support
+ * @tparam T Value type
+ * @param name Variable name
+ * @param value Variable to receive the value
+ * @param copy If true, value from backup will be copied to main
+ * @return Restore result
+ */
+template <typename T>
 uint16_t CNvsSystem::restoreValue(std::string &name, T &value, bool copy)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err;
+	nvs_handle_t nvs_handle;
+	esp_err_t err;
 
-    err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
-    if (err == ESP_OK)
-    {
-        if constexpr (std::is_same_v<T, uint8_t>) {
-            err = nvs_get_u8(nvs_handle, name.c_str(), reinterpret_cast<uint8_t*>(&value));
-        } else if constexpr (std::is_same_v<T, int8_t>) {
-            err = nvs_get_i8(nvs_handle, name.c_str(), reinterpret_cast<int8_t*>(&value));
-        } else if constexpr (std::is_same_v<T, uint16_t>) {
-            err = nvs_get_u16(nvs_handle, name.c_str(), reinterpret_cast<uint16_t*>(&value));
-        } else if constexpr (std::is_same_v<T, int16_t>) {
-            err = nvs_get_i16(nvs_handle, name.c_str(), reinterpret_cast<int16_t*>(&value));
-        } else if constexpr (std::is_same_v<T, uint32_t>) {
-            err = nvs_get_u32(nvs_handle, name.c_str(), reinterpret_cast<uint32_t*>(&value));
-        } else if constexpr (std::is_same_v<T, int32_t>) {
-            err = nvs_get_i32(nvs_handle, name.c_str(), reinterpret_cast<int32_t*>(&value));
-        } else if constexpr (std::is_same_v<T, float>) {
-            uint32_t raw = 0;
-            err = nvs_get_u32(nvs_handle, name.c_str(), &raw);
-            if (err == ESP_OK) {
-                std::memcpy(&value, &raw, sizeof(float));
-            }
-        } else if constexpr (std::is_same_v<T, double>) {
-            uint64_t raw = 0;
-            err = nvs_get_u64(nvs_handle, name.c_str(), &raw);
-            if (err == ESP_OK) {
-                std::memcpy(&value, &raw, sizeof(double));
-            }
-        }
-        nvs_close(nvs_handle);
-        if (err == ESP_OK) {
-            return NVS_MAIN;
-        }
-    }
+	err = nvs_open("nvs", NVS_READONLY, &nvs_handle);
+	if (err == ESP_OK)
+	{
+		if constexpr (std::is_same_v<T, uint8_t>)
+		{
+			err = nvs_get_u8(nvs_handle, name.c_str(), reinterpret_cast<uint8_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, int8_t>)
+		{
+			err = nvs_get_i8(nvs_handle, name.c_str(), reinterpret_cast<int8_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, uint16_t>)
+		{
+			err = nvs_get_u16(nvs_handle, name.c_str(), reinterpret_cast<uint16_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, int16_t>)
+		{
+			err = nvs_get_i16(nvs_handle, name.c_str(), reinterpret_cast<int16_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, uint32_t>)
+		{
+			err = nvs_get_u32(nvs_handle, name.c_str(), reinterpret_cast<uint32_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, int32_t>)
+		{
+			err = nvs_get_i32(nvs_handle, name.c_str(), reinterpret_cast<int32_t *>(&value));
+		}
+		else if constexpr (std::is_same_v<T, float>)
+		{
+			uint32_t raw = 0;
+			err = nvs_get_u32(nvs_handle, name.c_str(), &raw);
+			if (err == ESP_OK)
+			{
+				std::memcpy(&value, &raw, sizeof(float));
+			}
+		}
+		else if constexpr (std::is_same_v<T, double>)
+		{
+			uint64_t raw = 0;
+			err = nvs_get_u64(nvs_handle, name.c_str(), &raw);
+			if (err == ESP_OK)
+			{
+				std::memcpy(&value, &raw, sizeof(double));
+			}
+		}
+		nvs_close(nvs_handle);
+		if (err == ESP_OK)
+		{
+			return NVS_MAIN;
+		}
+	}
 
-    if (nvs2)
-    {
-        err = nvs_open("nvs2", NVS_READONLY, &nvs_handle);
-        if (err == ESP_OK)
-        {
-            if constexpr (std::is_same_v<T, uint8_t>) {
-                err = nvs_get_u8(nvs_handle, name.c_str(), reinterpret_cast<uint8_t*>(&value));
-            } else if constexpr (std::is_same_v<T, int8_t>) {
-                err = nvs_get_i8(nvs_handle, name.c_str(), reinterpret_cast<int8_t*>(&value));
-            } else if constexpr (std::is_same_v<T, uint16_t>) {
-                err = nvs_get_u16(nvs_handle, name.c_str(), reinterpret_cast<uint16_t*>(&value));
-            } else if constexpr (std::is_same_v<T, int16_t>) {
-                err = nvs_get_i16(nvs_handle, name.c_str(), reinterpret_cast<int16_t*>(&value));
-            } else if constexpr (std::is_same_v<T, uint32_t>) {
-                err = nvs_get_u32(nvs_handle, name.c_str(), reinterpret_cast<uint32_t*>(&value));
-            } else if constexpr (std::is_same_v<T, int32_t>) {
-                err = nvs_get_i32(nvs_handle, name.c_str(), reinterpret_cast<int32_t*>(&value));
-            } else if constexpr (std::is_same_v<T, float>) {
-                uint32_t raw = 0;
-                err = nvs_get_u32(nvs_handle, name.c_str(), &raw);
-                if (err == ESP_OK) {
-                    std::memcpy(&value, &raw, sizeof(float));
-                }
-            } else if constexpr (std::is_same_v<T, double>) {
-                uint64_t raw = 0;
-                err = nvs_get_u64(nvs_handle, name.c_str(), &raw);
-                if (err == ESP_OK) {
-                    std::memcpy(&value, &raw, sizeof(double));
-                }
-            }
-            nvs_close(nvs_handle);
-            if (err == ESP_OK) {
-                if (copy)
-                    saveValue(name, value, NVS_MAIN);
-                return NVS_BACKUP;
-            }
-        }
-    }
+	if (nvs2)
+	{
+		err = nvs_open("nvs2", NVS_READONLY, &nvs_handle);
+		if (err == ESP_OK)
+		{
+			if constexpr (std::is_same_v<T, uint8_t>)
+			{
+				err = nvs_get_u8(nvs_handle, name.c_str(), reinterpret_cast<uint8_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, int8_t>)
+			{
+				err = nvs_get_i8(nvs_handle, name.c_str(), reinterpret_cast<int8_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, uint16_t>)
+			{
+				err = nvs_get_u16(nvs_handle, name.c_str(), reinterpret_cast<uint16_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, int16_t>)
+			{
+				err = nvs_get_i16(nvs_handle, name.c_str(), reinterpret_cast<int16_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, uint32_t>)
+			{
+				err = nvs_get_u32(nvs_handle, name.c_str(), reinterpret_cast<uint32_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, int32_t>)
+			{
+				err = nvs_get_i32(nvs_handle, name.c_str(), reinterpret_cast<int32_t *>(&value));
+			}
+			else if constexpr (std::is_same_v<T, float>)
+			{
+				uint32_t raw = 0;
+				err = nvs_get_u32(nvs_handle, name.c_str(), &raw);
+				if (err == ESP_OK)
+				{
+					std::memcpy(&value, &raw, sizeof(float));
+				}
+			}
+			else if constexpr (std::is_same_v<T, double>)
+			{
+				uint64_t raw = 0;
+				err = nvs_get_u64(nvs_handle, name.c_str(), &raw);
+				if (err == ESP_OK)
+				{
+					std::memcpy(&value, &raw, sizeof(double));
+				}
+			}
+			nvs_close(nvs_handle);
+			if (err == ESP_OK)
+			{
+				if (copy)
+					saveValue(name, value, NVS_MAIN);
+				return NVS_BACKUP;
+			}
+		}
+	}
 
-    return NVS_NONE;
+	return NVS_NONE;
 }
 
-// Числовые методы
+// === Public numeric methods ===
 uint16_t CNvsSystem::save(std::string &name, uint8_t value, uint16_t mode) { return saveValue(name, value, mode); }
 uint16_t CNvsSystem::save(std::string &name, int8_t value, uint16_t mode) { return saveValue(name, value, mode); }
 uint16_t CNvsSystem::save(std::string &name, uint16_t value, uint16_t mode) { return saveValue(name, value, mode); }
@@ -405,9 +571,9 @@ bool CNvsSystem::init()
 		else
 		{
 			nvs2 = true;
-			uint8_t lock;
+			uint8_t lock = 0;
 			std::string str = "lock";
-			uint16_t res = restore(str,lock,NVS_BACKUP);
+			uint16_t res = restore(str, lock, false); // Don't copy, just read
 			nvs2_lock = ((res != NVS_NONE) && (lock > 0));
 		}
 	}
@@ -437,22 +603,19 @@ void CNvsSystem::free()
  * Supported commands:
  * - "clear": clear NVS memory
  * - "reset": restart device
- * - Work with variables of various types (u8, i8, i16, i32, u32, float, double)
+ * - Work with variables of various types (u8, i8, i16, i32, u32, float, double, string)
  */
 void CNvsSystem::command(json &cmd, json &answer)
 {
 	if (cmd.contains("nvs"))
 	{
-		nvs_handle_t nvs_handle;
-		error_t err;
-
 		// Clear NVS memory command
 		if (cmd["nvs"].contains("clear"))
 		{
-			err = nvs_flash_deinit();
+			esp_err_t err = nvs_flash_deinit();
 			err |= nvs_flash_erase();
 			err |= nvs_flash_init();
-			answer["nvs"] = err;
+			answer["nvs"] = (err == ESP_OK ? 0 : 1);
 		}
 		// Device restart command
 		else if (cmd["nvs"].contains("reset"))
@@ -460,7 +623,7 @@ void CNvsSystem::command(json &cmd, json &answer)
 			esp_restart();
 		}
 		// Work with NVS variables
-		else if (nvs_open("nvs", NVS_READWRITE, &nvs_handle) == ESP_OK)
+		else
 		{
 			// Check for variable name
 			if (cmd["nvs"].contains("name") && cmd["nvs"]["name"].is_string())
@@ -475,269 +638,272 @@ void CNvsSystem::command(json &cmd, json &answer)
 					tp = cmd["nvs"]["type"].template get<std::string>();
 				}
 
-				// Work with uint8_t variable type
+				uint16_t mode = NVS_MAIN;
+				if (cmd["nvs"].contains("mode") && cmd["nvs"]["mode"].is_number_unsigned())
+				{
+					mode = cmd["nvs"]["mode"].template get<uint16_t>();
+					if (mode < NVS_MAIN)
+						mode = NVS_MAIN;
+					else if (mode > NVS_BOTH)
+						mode = NVS_BOTH;
+				}
+
+				// === Type handling ===
 				if (tp == "u8")
 				{
-					uint8_t u8;
-					// Write value
+					uint8_t val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number_unsigned())
 					{
-						u8 = cmd["nvs"]["value"].template get<uint8_t>();
-						if ((err = nvs_set_u8(nvs_handle, name.c_str(), u8)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<uint8_t>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = u8;
-							err = nvs_commit(nvs_handle); // Confirm write
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_u8(nvs_handle, name.c_str(), &u8)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = u8;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-				// Work with int8_t variable type
 				else if (tp == "i8")
 				{
-					int8_t i8;
-					// Write value
+					int8_t val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number_integer())
 					{
-						i8 = cmd["nvs"]["value"].template get<int8_t>();
-						if ((err = nvs_set_i8(nvs_handle, name.c_str(), i8)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<int8_t>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = i8;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_i8(nvs_handle, name.c_str(), &i8)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = i8;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-				// Work with int16_t variable type
 				else if (tp == "i16")
 				{
-					int16_t i16;
-					// Write value
+					int16_t val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number_integer())
 					{
-						i16 = cmd["nvs"]["value"].template get<int16_t>();
-						if ((err = nvs_set_i16(nvs_handle, name.c_str(), i16)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<int16_t>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = i16;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_i16(nvs_handle, name.c_str(), &i16)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = i16;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-				// Work with int32_t variable type
 				else if (tp == "i32")
 				{
-					int32_t i32;
-					// Write value
+					int32_t val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number_integer())
 					{
-						i32 = cmd["nvs"]["value"].template get<int32_t>();
-						if ((err = nvs_set_i32(nvs_handle, name.c_str(), i32)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<int32_t>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = i32;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_i32(nvs_handle, name.c_str(), &i32)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = i32;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-				// Work with uint32_t variable type
 				else if (tp == "u32")
 				{
-					uint32_t u32;
-					// Write value
+					uint32_t val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number_unsigned())
 					{
-						u32 = cmd["nvs"]["value"].template get<uint32_t>();
-						if ((err = nvs_set_u32(nvs_handle, name.c_str(), u32)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<uint32_t>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = u32;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_u32(nvs_handle, name.c_str(), &u32)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = u32;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-				// Work with float variable type
 				else if (tp == "float")
 				{
-					float d;
-					uint32_t u32;
-					// Write value
+					float val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number())
 					{
-						d = cmd["nvs"]["value"].template get<float>();
-						std::memcpy(&u32, &d, sizeof(d)); // Convert float to uint32_t for storage
-						if ((err = nvs_set_u32(nvs_handle, name.c_str(), u32)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<float>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = d;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_u32(nvs_handle, name.c_str(), &u32)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							std::memcpy(&d, &u32, sizeof(d)); // Convert uint32_t back to float
-							answer["nvs"]["value"] = d;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-				// Work with double variable type
 				else if (tp == "double")
 				{
-					double d;
-					uint64_t d64;
-					// Write value
+					double val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number())
 					{
-						d = cmd["nvs"]["value"].template get<double>();
-						std::memcpy(&d64, &d, sizeof(d)); // Convert double to uint64_t for storage
-						if ((err = nvs_set_u64(nvs_handle, name.c_str(), d64)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<double>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = d;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_u64(nvs_handle, name.c_str(), &d64)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							std::memcpy(&d, &d64, sizeof(d)); // Convert uint64_t back to double
-							answer["nvs"]["value"] = d;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
+						}
+					}
+				}
+				else if (tp == "string")
+				{
+					std::string val;
+					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_string())
+					{
+						val = cmd["nvs"]["value"].template get<std::string>();
+						if (save(name, val, mode) != NVS_NONE)
+						{
+							answer["nvs"]["value"] = val;
+						}
+						else
+						{
+							answer["nvs"]["error"] = "save";
+						}
+					}
+					else
+					{
+						if (restore(name, val, true) != NVS_NONE)
+						{
+							answer["nvs"]["value"] = val;
+						}
+						else
+						{
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
 				// Work with uint16_t variable type (default)
 				else
 				{
-					uint16_t u16;
-					// Write value
+					uint16_t val;
 					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_number_unsigned())
 					{
-						u16 = cmd["nvs"]["value"].template get<uint16_t>();
-						if ((err = nvs_set_u16(nvs_handle, name.c_str(), u16)) == ESP_OK)
+						val = cmd["nvs"]["value"].template get<uint16_t>();
+						if (save(name, val, mode) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = u16;
-							err = nvs_commit(nvs_handle);
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "save";
 						}
 					}
-					// Read value
 					else
 					{
-						if ((err = nvs_get_u16(nvs_handle, name.c_str(), &u16)) == ESP_OK)
+						if (restore(name, val, true) != NVS_NONE)
 						{
-							answer["nvs"]["value"] = u16;
+							answer["nvs"]["value"] = val;
 						}
 						else
 						{
-							answer["nvs"]["error"] = err;
+							answer["nvs"]["error"] = "restore";
 						}
 					}
 				}
-
-				// Check for errors
-				if (err != ESP_OK)
-				{
-					answer["nvs"]["error"] = err;
-				}
 			}
-			// Close NVS handle
-			nvs_close(nvs_handle);
+
+			// Handle "lock" command
+			if (cmd["nvs"].contains("lock"))
+			{
+				uint8_t lock = 1;
+				std::string str = "lock";
+				uint16_t res = save(str, lock, NVS_BACKUP);
+				answer["nvs"]["lock"] = res;
+				nvs2_lock = true;
+			}
 		}
 	}
 }
