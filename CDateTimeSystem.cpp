@@ -11,6 +11,7 @@
 #include "nvs_flash.h"
 #include "CNvsSystem.h"
 #include "esp_system.h"
+#include <ctime>
 
 bool CDateTimeSystem::mSync = false; ///< Time synchronization flag (true - time is synchronized)
 
@@ -26,13 +27,15 @@ void CDateTimeSystem::init()
 	if (mSync)
 		return;
 
-	time_t now = 1726208190; // Default time (backup value)
+	std::time_t now = 1726208190; // Default time (backup value)
 
 	CNvsSystem::restore("timestamp", now);
 
 	// Set system time
 	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
+
+	ESP_LOGI("start data", "%s", std::ctime(&now));
 }
 
 /**

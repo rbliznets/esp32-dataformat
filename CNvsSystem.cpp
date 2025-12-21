@@ -119,7 +119,8 @@ uint16_t CNvsSystem::saveString(const std::string &name, const std::string &valu
 	// Check: is backup allowed, is nvs2 available, and is it not locked
 	if (((mode & NVS_BACKUP) == 0) || !nvs2 || nvs2_lock)
 	{
-		return mode;
+		return mode & NVS_MAIN;
+		;
 	}
 
 	if (!writeStringToNamespace("nvs2", name, value))
@@ -150,7 +151,8 @@ uint16_t CNvsSystem::saveBlob(const std::string &name, const uint8_t *data, size
 
 	if (((mode & NVS_BACKUP) == 0) || !nvs2 || nvs2_lock)
 	{
-		return mode;
+		return mode & NVS_MAIN;
+		;
 	}
 
 	if (!writeBlobToNamespace("nvs2", name, data, length))
@@ -390,7 +392,7 @@ uint16_t CNvsSystem::saveValue(const std::string &name, T value, uint16_t mode)
 
 	if (((mode & NVS_BACKUP) == 0) || !nvs2 || nvs2_lock)
 	{
-		return mode;
+		return mode & NVS_MAIN;
 	}
 
 	if (!writeValueToNamespace("nvs2", name, value))
@@ -664,6 +666,21 @@ void CNvsSystem::command(json &cmd, json &answer)
 				{
 					tp = cmd["nvs"]["type"].template get<std::string>();
 				}
+				else if (cmd["nvs"].contains("value"))
+				{
+					if (cmd["nvs"]["value"].is_number_integer())
+					{
+						tp = "i16";
+					}
+					else if (cmd["nvs"]["value"].is_number())
+					{
+						tp = "float";
+					}
+					else if (cmd["nvs"]["value"].is_string())
+					{
+						tp = "string";
+					}
+				}
 
 				uint16_t mode = NVS_MAIN;
 				if (cmd["nvs"].contains("mode") && cmd["nvs"]["mode"].is_number_unsigned())
@@ -885,6 +902,65 @@ void CNvsSystem::command(json &cmd, json &answer)
 						if (restore(name, val, true) != NVS_NONE)
 						{
 							answer["nvs"]["value"] = val;
+						}
+						else
+						{
+							answer["nvs"]["error"] = "restore";
+						}
+					}
+				}
+				else if (tp == "binary")
+				{
+					if (cmd["nvs"].contains("value") && cmd["nvs"]["value"].is_string())
+					{
+						std::string hexString = cmd["nvs"]["value"].template get<std::string>();
+						std::vector<uint8_t> data(hexString.length() / 2);
+
+						// Convert HEX string to binary data
+						for (size_t i = 0; i < hexString.length(); i += 2)
+						{
+							std::string byteStr = hexString.substr(i, 2);
+							try
+							{
+								// Convert the two-character hex string to an integer with base 16
+								uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
+								data[i >> 1] = byteValue;
+							}
+							catch (const std::invalid_argument &e)
+							{
+								answer["nvs"]["error"] = "Invalid hex character in string: " + byteStr;
+								return;
+							}
+							catch (const std::out_of_range &e)
+							{
+								answer["nvs"]["error"] = "Hex value out of range for uint8_t: " + byteStr;
+								return;
+							}
+						}
+						if (save(name, data, mode) != NVS_NONE)
+						{
+							answer["nvs"]["value"] = hexString;
+						}
+						else
+						{
+							answer["nvs"]["error"] = "save";
+						}
+					}
+					else
+					{
+						std::vector<uint8_t> data;
+						if (restore(name, data, true) != NVS_NONE)
+						{
+							// Convert binary data to HEX string
+							char tmp[4];
+							std::string hexString;
+							for (const auto& byte : data)
+							{
+								std::sprintf(tmp, "%02x", byte);
+								hexString += tmp;
+							}
+
+							answer["nvs"]["value"] = hexString;
 						}
 						else
 						{
