@@ -27,7 +27,7 @@ void CDateTimeSystem::init()
 	if (mSync)
 		return;
 
-	std::time_t now = 1726208190; // Default time (backup value)
+	std::time_t now = 1766188805; // Default time (backup value)
 
 	CNvsSystem::restore("timestamp", now);
 
