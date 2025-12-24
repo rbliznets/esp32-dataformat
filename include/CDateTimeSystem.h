@@ -24,6 +24,7 @@ class CDateTimeSystem
 {
 protected:
 	static bool mSync; ///< Time synchronization status flag (true - time is synchronized)
+	static bool mApproximate; 
 
 public:
 	/// Initialize system time on startup.
@@ -60,6 +61,7 @@ public:
 	/// @brief Get time synchronization flag
 	/// @return true if time is synchronized, false if not
 	static inline bool isSync() { return mSync; }
+	static inline bool isApproximate() { return (mSync || mApproximate); }
 
 	/// @brief Output current date and time to log
 	/*!

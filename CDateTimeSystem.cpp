@@ -14,7 +14,7 @@
 #include <ctime>
 
 bool CDateTimeSystem::mSync = false; ///< Time synchronization flag (true - time is synchronized)
-
+bool CDateTimeSystem::mApproximate = false;
 /**
  * @brief Initialize system time on startup
  *
@@ -35,7 +35,7 @@ void CDateTimeSystem::init()
 	timeval t = {.tv_sec = now, .tv_usec = 0};
 	settimeofday(&t, nullptr);
 
-	ESP_LOGI("start data", "%s", std::ctime(&now));
+	ESP_LOGI("start date", "%s", std::ctime(&now));
 }
 
 /**
@@ -66,6 +66,7 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force, bool approximate)
 		if (tv_start.tv_sec <= now)
 		{
 			settimeofday(&t, nullptr);
+			mApproximate = true;
 			// If force setting - save time
 			if (force)
 			{
@@ -80,6 +81,7 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force, bool approximate)
 		saveDateTime();
 		mSync = true; // Mark time as synchronized
 	}
+	ESP_LOGI("new date", "%s", std::ctime(&now));
 	return true;
 }
 
