@@ -161,3 +161,57 @@ json CJsonConvertor::Cbor2Json(std::vector<uint8_t> &src)
 	}
 	return res;
 }
+
+std::vector<uint8_t> CJsonConvertor::Str2Bin(std::string &hexString, std::string &error)
+{
+	error = "";
+	std::vector<uint8_t> dt(hexString.length() / 2);
+	// Convert HEX string to binary data
+	for (size_t i = 0; i < hexString.length(); i += 2)
+	{
+		std::string byteStr = hexString.substr(i, 2);
+		try
+		{
+			// Convert the two-character hex string to an integer with base 16
+			uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
+			dt[i >> 1] = byteValue;
+		}
+		catch (const std::invalid_argument &e)
+		{
+			error = "Invalid hex character in string: " + byteStr;
+			break;
+		}
+		catch (const std::out_of_range &e)
+		{
+			error = "Hex value out of range for uint8_t: " + byteStr;
+			break;
+		}
+	}
+	return dt;
+}
+
+std::string CJsonConvertor::Bin2Str(std::vector<uint8_t> &bin)
+{
+	std::string str = "";
+	// Convert binary data to HEX string
+	char tmp[4];
+	for (const auto &dt : bin)
+	{
+		std::sprintf(tmp, "%02x", dt);
+		str += tmp;
+	}
+	return str;
+}
+
+std::string CJsonConvertor::Bin2Str(uint8_t *data, uint16_t size)
+{
+	std::string str = "";
+	// Convert binary data to HEX string
+	char tmp[4];
+	for (size_t i = 0; i < size; i++)
+	{
+		std::sprintf(tmp, "%02x", data[i]);
+		str += tmp;
+	}
+	return str;
+}

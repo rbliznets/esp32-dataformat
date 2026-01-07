@@ -47,4 +47,8 @@ public:
      * @return JSON object
      */
     static json Cbor2Json(std::vector<uint8_t> &src);
+
+    static std::vector<uint8_t> Str2Bin(std::string& hexString, std::string& error);
+    static std::string Bin2Str(std::vector<uint8_t>& bin);
+    static std::string Bin2Str(uint8_t* data, uint16_t size);
 };
