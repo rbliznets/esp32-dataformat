@@ -97,7 +97,7 @@ bool CDateTimeSystem::saveDateTime()
 	timeval tv_start;
 	gettimeofday(&tv_start, nullptr);
 
-	return (CNvsSystem::save("timestamp", tv_start.tv_sec, NVS_BOTH) != NVS_NONE);
+	return (CNvsSystem::save("timestamp", tv_start.tv_sec) != NVS_NONE);
 }
 
 /**
