@@ -15,6 +15,9 @@
 
 bool CDateTimeSystem::mSync = false; ///< Time synchronization flag (true - time is synchronized)
 bool CDateTimeSystem::mApproximate = false;
+bool CDateTimeSystem::mUpdateFlashApproximate = false; 
+bool CDateTimeSystem::mUpdateFlashSync = false; 
+
 /**
  * @brief Initialize system time on startup
  *
@@ -67,18 +70,18 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force, bool approximate)
 		{
 			settimeofday(&t, nullptr);
 			mApproximate = true;
-			// If force setting - save time
-			if (force)
-			{
-				saveDateTime();
-			}
+			// // If force setting - save time
+			// if (force)
+			// {
+			// 	saveDateTime();
+			// }
 		}
 	}
 	else
 	{
 		// Precise synchronization - set time and save
 		settimeofday(&t, nullptr);
-		saveDateTime();
+		// saveDateTime();
 		mSync = true; // Mark time as synchronized
 	}
 	ESP_LOGI("new date", "%s", std::ctime(&now));
@@ -92,12 +95,30 @@ bool CDateTimeSystem::setDateTime(time_t now, bool force, bool approximate)
  * Function saves current system time to NVS flash memory
  * for recovery on device reboot.
  */
-bool CDateTimeSystem::saveDateTime()
+bool CDateTimeSystem::saveDateTime(bool forceSave)
 {
+	if(!forceSave)
+	{
+		if(mSync && mUpdateFlashSync)
+			return false;
+		if(mApproximate && mUpdateFlashApproximate)
+			return false;
+	}
 	timeval tv_start;
 	gettimeofday(&tv_start, nullptr);
-
-	return (CNvsSystem::save("timestamp", tv_start.tv_sec) != NVS_NONE);
+	if(CNvsSystem::save("timestamp", tv_start.tv_sec) != NVS_NONE)
+	{
+		if(mSync)
+			mUpdateFlashSync = true;
+		if(mApproximate)
+			mUpdateFlashApproximate = true;
+		ESP_LOGI("save date", "%s", std::ctime(&tv_start.tv_sec));
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 /**

@@ -2,7 +2,7 @@
 	\file
 	\brief Class for synchronizing system time.
 	\authors Bliznets R.A. (r.bliznets@gmail.com)
-	\version 1.2.0.0
+	\version 1.2.1.0
 	\date 13.09.2024
 */
 
@@ -25,6 +25,8 @@ class CDateTimeSystem
 protected:
 	static bool mSync; ///< Time synchronization status flag (true - time is synchronized)
 	static bool mApproximate; 
+	static bool mUpdateFlashApproximate; 
+	static bool mUpdateFlashSync; 
 
 public:
 	/// Initialize system time on startup.
@@ -43,7 +45,7 @@ public:
 
 	/// @brief Write current system time to NVS memory
 	/// @return true if time successfully written, otherwise false
-	static bool saveDateTime();
+	static bool saveDateTime(bool forceSave = true);
 
 	/// Process JSON time synchronization commands.
 	/*!
