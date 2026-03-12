@@ -155,7 +155,7 @@ bool CSpiffsSystem::init(bool check)
         {
             ESP_LOGI(TAG, "SPIFFS_check() successful");
             // Garbage collection to free space
-            esp_spiffs_gc(conf.partition_label, 100000);
+            esp_spiffs_gc(conf.partition_label, 128000);
         }
     }
 
@@ -926,6 +926,30 @@ void CSpiffsSystem::command(json &cmd, json &answer)
                 delete[] data;
 
                 answer["spiffs"]["text"] = str;
+            }
+        }
+        else if (cmd["spiffs"].contains("gc") && cmd["spiffs"]["gc"].is_number_unsigned())
+        {
+            uint32_t free_size = cmd["spiffs"]["gc"].template get<uint32_t>();
+            esp_err_t err;
+            if (free_size != 0)
+            {
+                err = esp_spiffs_gc(nullptr, free_size);
+                if(err != ESP_OK)
+                {
+                    if(err == ESP_ERR_NOT_FINISHED)
+                        answer["spiffs"]["error"] = "gc fails to reclaim the size";
+                    else
+                        answer["spiffs"]["error"] = "gc failed";
+                }
+            }
+            size_t total_bytes;
+            size_t used_bytes;
+            err = esp_spiffs_info(nullptr, &total_bytes, &used_bytes);
+            if(err == ESP_OK)
+            {
+                answer["spiffs"]["total"] = total_bytes;
+                answer["spiffs"]["used"] = used_bytes;
             }
         }
     }
