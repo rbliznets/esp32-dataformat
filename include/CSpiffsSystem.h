@@ -73,7 +73,7 @@ public:
      * \note Used to guarantee completion of input/output operations before exit
      * \warning Method modifies file system
      */
-    static bool endTransaction();
+    static bool endTransaction(bool log = false);
 
     /*!
      * @brief Write data buffer to file

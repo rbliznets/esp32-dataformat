@@ -134,7 +134,7 @@ bool CSpiffsSystem::init(bool check)
     }
 
     // Additional transaction completion check
-    check |= endTransaction();
+    check |= endTransaction(true);
 
     // Check file system integrity
     if (check)
@@ -219,7 +219,7 @@ void CSpiffsSystem::free()
  * \note Recursive call handles remaining artifacts
  * \warning Method modifies file system - don't use in critical sections
  */
-bool CSpiffsSystem::endTransaction()
+bool CSpiffsSystem::endTransaction(bool log)
 {
     struct dirent *entry;
     DIR *dp;
@@ -249,12 +249,16 @@ bool CSpiffsSystem::endTransaction()
                 if (fname[fname.length() - 1] == '$')
                 {
                     res = true; // File system was modified
+                    if (log)
+                        ESP_LOGW(TAG, "remove %s", (str + fname).c_str());
                     std::remove((str + fname).c_str());
                 }
                 // Delete temporary files with suffix !
                 else if (fname[fname.length() - 1] == '!')
                 {
                     res = true; // File system was modified
+                    if (log)
+                        ESP_LOGW(TAG, "remove %s", (str + fname).c_str());
                     std::remove((str + fname).c_str());
                 }
             }
@@ -276,10 +280,14 @@ bool CSpiffsSystem::endTransaction()
                     std::string fname2 = fname.substr(0, fname.length() - 1);
 
                     // Delete original file
+                    if (log)
+                        ESP_LOGI(TAG, "remove %s", (str + fname2).c_str());
                     std::remove((str + fname2).c_str());
                     // ESP_LOGI(TAG, "remove file %s", fname2.c_str());
 
                     // Delete temporary file
+                    if (log)
+                        ESP_LOGI(TAG, "remove %s", (str + fname).c_str());
                     if (std::remove((str + fname).c_str()) != 0)
                     {
                         ESP_LOGE(TAG, "Failed to remove file %s",
@@ -298,9 +306,13 @@ bool CSpiffsSystem::endTransaction()
                     std::string fname2 = fname.substr(0, fname.length() - 1);
 
                     // Delete original file before rename
+                    if (log)
+                        ESP_LOGI(TAG, "remove %s", (str + fname2).c_str());
                     std::remove((str + fname2).c_str());
 
                     // Rename temporary file
+                    if (log)
+                        ESP_LOGI(TAG, "rename %s", (str + fname).c_str());
                     if (std::rename((str + fname).c_str(), (str + fname2).c_str()) != 0)
                     {
                         ESP_LOGE(TAG, "Failed to rename file %s to %s",
@@ -313,11 +325,13 @@ bool CSpiffsSystem::endTransaction()
             // Recursive call to handle remaining artifacts
             if (res)
             {
-                endTransaction(); // Retry completion
+                endTransaction(log); // Retry completion
             }
             else
             {
                 // Remove transaction marker
+                if (log)
+                    ESP_LOGI(TAG, "remove /spiffs/$");
                 std::remove("/spiffs/$");
                 res = true;
             }
@@ -935,9 +949,9 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             if (free_size != 0)
             {
                 err = esp_spiffs_gc(nullptr, free_size);
-                if(err != ESP_OK)
+                if (err != ESP_OK)
                 {
-                    if(err == ESP_ERR_NOT_FINISHED)
+                    if (err == ESP_ERR_NOT_FINISHED)
                         answer["spiffs"]["error"] = "gc fails to reclaim the size";
                     else
                         answer["spiffs"]["error"] = "gc failed";
@@ -946,7 +960,7 @@ void CSpiffsSystem::command(json &cmd, json &answer)
             size_t total_bytes;
             size_t used_bytes;
             err = esp_spiffs_info(nullptr, &total_bytes, &used_bytes);
-            if(err == ESP_OK)
+            if (err == ESP_OK)
             {
                 answer["spiffs"]["total"] = total_bytes;
                 answer["spiffs"]["used"] = used_bytes;
