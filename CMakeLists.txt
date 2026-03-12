@@ -1,4 +1,4 @@
-idf_component_register(SRCS "CJsonConvertor.cpp" "COTASystem.cpp" "CDateTimeSystem.cpp" "CNvsSystem.cpp" "CSpiffsSystem.cpp" 
+idf_component_register(SRCS "CLittlefsSystem.cpp" "CJsonConvertor.cpp" "COTASystem.cpp" "CDateTimeSystem.cpp" "CNvsSystem.cpp" "CSpiffsSystem.cpp" 
                     "CBufferSystem.cpp"
                     "CJsonReadStream.cpp"
                     "CDateTimeSystem.cpp"

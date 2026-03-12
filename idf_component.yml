@@ -3,7 +3,8 @@ description: formated data and spiffs
 url: https://github.com/rbliznets/esp32-dataformat
 dependencies:
   johboh/nlohmann-json: =*
-  idf: ">=5.0.0"
+  joltwallet/littlefs: =*
+  idf: ">=5.3.0"
 targets:
   - esp32
   - esp32s2
