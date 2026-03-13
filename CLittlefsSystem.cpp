@@ -112,8 +112,7 @@ bool CLittlefsSystem::init(bool check)
         .format_if_mount_failed = true,
         .read_only = false,
         .dont_mount = false,
-        .grow_on_mount = false
-    };
+        .grow_on_mount = false};
 
     // Register LittleFS in VFS
     // Returns ESP_OK on successful registration
@@ -183,146 +182,102 @@ void CLittlefsSystem::free()
     esp_vfs_littlefs_unregister(nullptr);
 }
 
-/*!
- * @brief End file system transaction
- * @return true - if file system recheck is required, otherwise false
- *
- * Processes special transaction files:
- * - Files with suffix "$" - contain temporary data for renaming
- * - Files with suffix "!" - contain data for deletion
- *
- * Algorithm:
- * 1. Opens LittleFS root directory
- * 2. Checks for active transaction marker "$"
- * 3. Without marker:
- *    - Deletes remaining temporary files ($ and !)
- *    - Performs integrity recovery
- * 4. With marker:
- *    - Completes transaction (rename and delete)
- *    - Removes transaction marker
- *
- * \note Recursive call handles remaining artifacts
- * \warning Method modifies file system - don't use in critical sections
- */
-bool CLittlefsSystem::endTransaction(bool log)
+// Вспомогательная функция для рекурсивного обхода
+void CLittlefsSystem::processDirectory(const std::string &path, bool log, bool isRecovery)
 {
-    struct dirent *entry;
-    DIR *dp;
-    bool res = false;
-
-    // Open LittleFS root directory
-    dp = opendir("/spiffs");
+    DIR *dp = opendir(path.c_str());
     if (dp == nullptr)
-    {
-        ESP_LOGE(TAG, "Failed to open dir /spiffs");
-        res = true; // File system check required due to open error
-    }
-    else
-    {
-        std::string str = "/spiffs/";
+        return;
 
-        // Check for active transaction marker ($)
-        FILE *f = std::fopen("/spiffs/$", "r");
-        if (f == nullptr)
+    struct dirent *entry;
+    while ((entry = readdir(dp)))
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+
+        std::string fullPath = path + "/" + name;
+
+        // Проверяем, является ли объект директорией
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
         {
-            // Recovery mode: process remaining artifacts
-            while ((entry = readdir(dp)))
-            {
-                std::string fname = entry->d_name;
+            // Рекурсивный вход в папку
+            processDirectory(fullPath, log, isRecovery);
+            continue;
+        }
 
-                // Delete temporary files with suffix $
-                if (fname[fname.length() - 1] == '$')
-                {
-                    res = true; // File system was modified
-                    if (log)
-                        ESP_LOGW(TAG, "remove %s", (str + fname).c_str());
-                    std::remove((str + fname).c_str());
-                }
-                // Delete temporary files with suffix !
-                else if (fname[fname.length() - 1] == '!')
-                {
-                    res = true; // File system was modified
-                    if (log)
-                        ESP_LOGW(TAG, "remove %s", (str + fname).c_str());
-                    std::remove((str + fname).c_str());
-                }
+        // Логика обработки файлов (ваша исходная логика)
+        size_t len = name.length();
+        if (len < 2)
+            continue;
+
+        char lastChar = name[len - 1];
+        std::string baseNamePath = path + "/" + name.substr(0, len - 1);
+
+        if (isRecovery)
+        {
+            // Режим восстановления: просто удаляем временные файлы $ и !
+            if (lastChar == '$' || lastChar == '!')
+            {
+                if (log)
+                    ESP_LOGW(TAG, "Recovery: remove %s", fullPath.c_str());
+                std::remove(fullPath.c_str());
             }
-            closedir(dp);
         }
         else
         {
-            // Active transaction detected - complete operations
-            std::fclose(f);
-
-            // Process all files in directory
-            while ((entry = readdir(dp)))
+            // Активная транзакция
+            if (lastChar == '!')
             {
-                std::string fname = entry->d_name;
-
-                // Process files with suffix ! (delete)
-                if ((fname.length() > 1) && (fname[fname.length() - 1] == '!'))
-                {
-                    std::string fname2 = fname.substr(0, fname.length() - 1);
-
-                    // Delete original file
-                    if (log)
-                        ESP_LOGI(TAG, "remove %s", (str + fname2).c_str());
-                    std::remove((str + fname2).c_str());
-                    // ESP_LOGI(TAG, "remove file %s", fname2.c_str());
-
-                    // Delete temporary file
-                    if (log)
-                        ESP_LOGI(TAG, "remove %s", (str + fname).c_str());
-                    if (std::remove((str + fname).c_str()) != 0)
-                    {
-                        ESP_LOGE(TAG, "Failed to remove file %s",
-                                 fname.c_str());
-                    }
-                }
-            }
-            closedir(dp);
-            dp = opendir("/spiffs");
-            while ((entry = readdir(dp)))
-            {
-                std::string fname = entry->d_name;
-                // Process files with suffix $ (rename)
-                if ((fname.length() > 1) && (fname[fname.length() - 1] == '$'))
-                {
-                    std::string fname2 = fname.substr(0, fname.length() - 1);
-
-                    // Delete original file before rename
-                    if (log)
-                        ESP_LOGI(TAG, "remove %s", (str + fname2).c_str());
-                    std::remove((str + fname2).c_str());
-
-                    // Rename temporary file
-                    if (log)
-                        ESP_LOGI(TAG, "rename %s", (str + fname).c_str());
-                    if (std::rename((str + fname).c_str(), (str + fname2).c_str()) != 0)
-                    {
-                        ESP_LOGE(TAG, "Failed to rename file %s to %s",
-                                 fname.c_str(), fname2.c_str());
-                    }
-                }
-            }
-            closedir(dp);
-
-            // Recursive call to handle remaining artifacts
-            if (res)
-            {
-                endTransaction(log); // Retry completion
-            }
-            else
-            {
-                // Remove transaction marker
                 if (log)
-                    ESP_LOGI(TAG, "remove /spiffs/$");
-                std::remove("/spiffs/$");
-                res = true;
+                    ESP_LOGI(TAG, "Finalizing !: remove %s and %s", baseNamePath.c_str(), fullPath.c_str());
+                std::remove(baseNamePath.c_str());
+                std::remove(fullPath.c_str());
+            }
+            else if (lastChar == '$')
+            {
+                if (log)
+                    ESP_LOGI(TAG, "Finalizing $: rename %s to %s", fullPath.c_str(), baseNamePath.c_str());
+                std::remove(baseNamePath.c_str()); // Удаляем старый оригинал
+                std::rename(fullPath.c_str(), baseNamePath.c_str());
             }
         }
     }
-    return res; // true - if changes require checking
+    closedir(dp);
+}
+
+bool CLittlefsSystem::endTransaction(bool log)
+{
+    const char *root = "/spiffs";
+    const char *marker = "/spiffs/$";
+    bool res = false;
+
+    FILE *f = std::fopen(marker, "r");
+    if (f == nullptr)
+    {
+        // Режим восстановления (маркера нет, чистим мусор)
+        processDirectory(root, log, true);
+        res = true;
+    }
+    else
+    {
+        // Активная транзакция
+        std::fclose(f);
+
+        // 1 проход: обрабатываем удаление (!)
+        // 2 проход: обрабатываем переименование ($)
+        // В рекурсивном исполнении проще сделать один проход,
+        // так как LittleFS атомарно переименовывает файлы.
+        processDirectory(root, log, false);
+
+        if (log)
+            ESP_LOGI(TAG, "Transaction complete, removing marker");
+        std::remove(marker);
+        res = true;
+    }
+
+    return res;
 }
 
 /*!

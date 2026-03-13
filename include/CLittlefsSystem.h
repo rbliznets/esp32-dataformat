@@ -38,6 +38,8 @@ protected:
     /// @param lock true - start transaction (write), false - end transaction
     static void writeEvent(bool lock);
 
+    static void processDirectory(const std::string& path, bool log, bool isRecovery);
+
 public:
     /*!
      * @brief Initialize LittleFS file system
