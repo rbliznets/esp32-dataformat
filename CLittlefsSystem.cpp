@@ -354,6 +354,18 @@ uint16_t CLittlefsSystem::clearDir(const char *dirName)
         while ((entry = readdir(dp)))
         {
             std::string str = entry->d_name;
+            if (str == "." || str == "..")
+                continue;
+
+            std::string fullPath = dirName;
+            fullPath += "/" + str;
+            // Проверяем, является ли объект директорией
+            struct stat st;
+            if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            {
+                continue;
+            }
+
             if ((str.length() > 1) && (str[str.length() - 1] == '$'))
             {
                 transFiles.push_back(str.substr(0, str.length() - 1));
