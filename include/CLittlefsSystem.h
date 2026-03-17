@@ -29,6 +29,8 @@ typedef void onLittlefsWork(bool lock);
 */
 class CLittlefsSystem
 {
+private:
+    static uint32_t mFreeMem;
 protected:
     /// Queue of LittleFS work event handlers
     /// Used to notify external modules about start/end of write operations
@@ -149,4 +151,6 @@ public:
      * @return uint16_t Number of successfully cleared files
      */
     static uint16_t clearDir(const char *dirName);
+
+    static uint32_t getFreeSize(bool mem = false);
 };

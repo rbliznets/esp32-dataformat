@@ -159,6 +159,7 @@ bool CLittlefsSystem::init(bool check)
     }
     else
     {
+        mFreeMem = total - used;
         // Log partition size
         ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     }
@@ -396,6 +397,7 @@ uint16_t CLittlefsSystem::clearDir(const char *dirName)
         closedir(dp); // Close directory after reading
     }
 
+    getFreeSize();
     // writeEvent(false); // Signal end of write operation
     return res; // Return number of successfully cleared files
 }
@@ -430,7 +432,6 @@ void CLittlefsSystem::command(json &cmd, json &answer)
             std::string fname = cmd["spiffs"]["ls"].template get<std::string>();
             std::string fname2 = "/spiffs";
             answer["spiffs"]["root"] = fname;
-
             int offset = 0;
             int count = -1;
             // Get pagination parameters
@@ -441,6 +442,10 @@ void CLittlefsSystem::command(json &cmd, json &answer)
             if (cmd["spiffs"].contains("count") && cmd["spiffs"]["count"].is_number_unsigned())
             {
                 count = cmd["spiffs"]["count"].template get<int>();
+            }
+            if(offset != 0)
+            {
+                answer["spiffs"]["offset"] = offset;
             }
 
             // Form complete path
@@ -907,4 +912,21 @@ void CLittlefsSystem::command(json &cmd, json &answer)
             }
         }
     }
+}
+
+uint32_t CLittlefsSystem::mFreeMem = 0;
+
+uint32_t CLittlefsSystem::getFreeSize(bool mem)
+{
+    if(!mem)
+    {
+            size_t total_bytes;
+            size_t used_bytes;
+            esp_err_t err = esp_littlefs_info(nullptr, &total_bytes, &used_bytes);
+            if (err == ESP_OK)
+            {
+                mFreeMem = total_bytes - used_bytes;
+            }
+    }
+    return mFreeMem;
 }
