@@ -105,6 +105,8 @@ private:
 	static uint16_t restoreBlob(const std::string &name, std::vector<uint8_t> &data, bool copy);
 
 public:
+	static bool isNvs2Lock(){return ((!nvs2) || nvs2_lock);};
+
 	/**
 	 * @brief Initialize NVS memory.
 	 *
