@@ -492,7 +492,7 @@ void CLittlefsSystem::command(json &cmd, json &answer)
                                 json fl;
                                 fl["name"] = entry->d_name;
                                 fl["size"] = sz;
-#if (CONFIG_SPIFFS_USE_MTIME == 1)
+#if (CONFIG_LITTLEFS_USE_MTIME == 1)
                                 char tmp[32];
                                 strftime(tmp, 32, "%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
                                 fl["modify"] = tmp;
