@@ -244,6 +244,7 @@ void CLittlefsSystem::processDirectory(const std::string &path, bool log, bool i
                 std::rename(fullPath.c_str(), baseNamePath.c_str());
             }
         }
+        vTaskDelay(1);
     }
     closedir(dp);
 }
