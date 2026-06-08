@@ -2,8 +2,8 @@ version: "2.2.0"
 description: formated data and spiffs 
 url: https://github.com/rbliznets/esp32-dataformat
 dependencies:
-  johboh/nlohmann-json: "^3.11.3"
-  joltwallet/littlefs: "^1.21.1"
+  johboh/nlohmann-json: ">=3.11.3"
+  joltwallet/littlefs: ">=1.22.1"
   idf: ">=5.5.0"
 targets:
   - esp32
