@@ -31,4 +31,10 @@ menu "Data Format"
         default "data"
         help
             This option defines the name of the json field for binary cbor field.
+
+    config DATAFORMAT_LS_HIDE_DIR_SIZE
+        bool "Hide size field for directories in \"ls\" command"
+        default n
+        help
+            Do not include the "size" field for directory entries in the "ls" command response.
 endmenu

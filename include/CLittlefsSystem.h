@@ -42,6 +42,10 @@ protected:
 
     static void processDirectory(const std::string& path, bool log, bool isRecovery);
 
+    /// Recursively remove a directory and all its contents.
+    /// @param path Full path to the directory to remove
+    static void removeDir(const std::string& path);
+
 public:
     /*!
      * @brief Initialize LittleFS file system
@@ -101,7 +105,7 @@ public:
      * Supported commands:
      * - "ls": Get list of files in directory (with pagination)
      * - "rd": Read binary file content
-     * - "rm": Delete file
+     * - "rm": Delete file or directory (recursively)
      * - "trans": Transaction management ("end"/"cancel")
      * - "old"/"new": Rename file
      * - "wr": Write binary data to file

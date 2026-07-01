@@ -249,6 +249,36 @@ void CLittlefsSystem::processDirectory(const std::string &path, bool log, bool i
     closedir(dp);
 }
 
+// Рекурсивное удаление директории со всем содержимым
+void CLittlefsSystem::removeDir(const std::string &path)
+{
+    DIR *dp = opendir(path.c_str());
+    if (dp == nullptr)
+        return;
+
+    struct dirent *entry;
+    while ((entry = readdir(dp)))
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+
+        std::string fullPath = path + "/" + name;
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+        {
+            removeDir(fullPath);
+        }
+        else
+        {
+            std::remove(fullPath.c_str());
+        }
+        vTaskDelay(1);
+    }
+    closedir(dp);
+    rmdir(path.c_str());
+}
+
 bool CLittlefsSystem::endTransaction(bool log)
 {
     const char *root = "/spiffs";
@@ -411,7 +441,7 @@ uint16_t CLittlefsSystem::clearDir(const char *dirName)
  * Processes the following commands:
  * - ls: Get list of files in directory
  * - rd: Read file content
- * - rm: Delete file
+ * - rm: Delete file or directory (recursively)
  * - trans: Transaction management (end/cancel)
  * - old/new: Rename file
  * - wr: Append data to file
@@ -492,7 +522,12 @@ void CLittlefsSystem::command(json &cmd, json &answer)
                                 }
                                 json fl;
                                 fl["name"] = entry->d_name;
-                                fl["size"] = sz;
+#if (CONFIG_DATAFORMAT_LS_HIDE_DIR_SIZE == 1)
+                                if (!(res == 0 && S_ISDIR(buf.st_mode)))
+#endif
+                                {
+                                    fl["size"] = sz;
+                                }
 #if (CONFIG_LITTLEFS_USE_MTIME == 1)
                                 char tmp[32];
                                 strftime(tmp, 32, "%Y.%m.%d %H:%M:%S", localtime(&buf.st_mtime));
@@ -596,9 +631,17 @@ void CLittlefsSystem::command(json &cmd, json &answer)
             std::string str = "/spiffs/" + fname;
             writeEvent(true);
 
-            if (std::filesystem::exists(str.c_str()))
+            struct stat st;
+            if (stat(str.c_str(), &st) == 0)
             {
-                std::remove(str.c_str());
+                if (S_ISDIR(st.st_mode))
+                {
+                    removeDir(str);
+                }
+                else
+                {
+                    std::remove(str.c_str());
+                }
             }
             else
             {
