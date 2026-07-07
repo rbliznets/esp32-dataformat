@@ -132,6 +132,7 @@ public:
 	 * Supported commands:
 	 * - "clear": clear entire NVS memory
 	 * - "reset": restart device
+	 * - "get":"status": return used/free space (bytes) of nvs; if nvs2 exists, also its used/free space and write-lock
 	 * - Work with variables of various types (u8, i8, i16, i32, u32, float, double)
 	 *
 	 * @param[in] cmd JSON object with NVS commands (key "nvs" at root).

@@ -17,6 +17,7 @@
 using json = nlohmann::json; // Example, if using nlohmann/json
 
 static const char *TAG = "nvs";
+static const size_t NVS_ENTRY_SIZE = 32; // size of one NVS entry in bytes (ESP-IDF internal format)
 
 // Static class members
 bool CNvsSystem::nvs2 = false;
@@ -632,6 +633,7 @@ void CNvsSystem::free()
  * Supported commands:
  * - "clear": clear NVS memory
  * - "reset": restart device
+ * - "get":"status": return used/free space (bytes) of nvs; if nvs2 exists, also its used/free space and write-lock
  * - Work with variables of various types (u8, i8, i16, i32, u32, float, double, string)
  */
 void CNvsSystem::command(json &cmd, json &answer)
@@ -650,6 +652,27 @@ void CNvsSystem::command(json &cmd, json &answer)
 		else if (cmd["nvs"].contains("reset"))
 		{
 			esp_restart();
+		}
+		// NVS status request: used/free space of nvs, and if nvs2 exists, its used/free space and write-lock
+		else if (cmd["nvs"].contains("get") && cmd["nvs"]["get"].is_string() && cmd["nvs"]["get"].template get<std::string>() == "status")
+		{
+			nvs_stats_t stats;
+			if (nvs_get_stats("nvs", &stats) == ESP_OK)
+			{
+				answer["nvs"]["main"]["used"] = stats.used_entries * NVS_ENTRY_SIZE;
+				answer["nvs"]["main"]["free"] = stats.free_entries * NVS_ENTRY_SIZE;
+			}
+
+			if (nvs2)
+			{
+				nvs_stats_t stats2;
+				if (nvs_get_stats("nvs2", &stats2) == ESP_OK)
+				{
+					answer["nvs"]["backup"]["used"] = stats2.used_entries * NVS_ENTRY_SIZE;
+					answer["nvs"]["backup"]["free"] = stats2.free_entries * NVS_ENTRY_SIZE;
+					answer["nvs"]["backup"]["lock"] = nvs2_lock;
+				}
+			}
 		}
 		// Work with NVS variables
 		else
