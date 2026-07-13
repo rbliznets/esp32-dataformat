@@ -10,8 +10,7 @@
 
 #include "sdkconfig.h"
 
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
+#include "CJsonType.h"
 
 #define BUF_PART_SIZE (200) ///< Default buffer part size in bytes
 

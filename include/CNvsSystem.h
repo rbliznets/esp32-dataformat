@@ -12,8 +12,7 @@
 #include <string>
 #include <vector>
 
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
+#include "CJsonType.h"
 
 #define NVS_NONE (0)
 #define NVS_MAIN (1)

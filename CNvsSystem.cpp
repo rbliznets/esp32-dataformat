@@ -13,9 +13,6 @@
 #include "nvs.h"
 #include "esp_system.h"
 
-// Depends on json, assuming it's declared globally or in header
-using json = nlohmann::json; // Example, if using nlohmann/json
-
 static const char *TAG = "nvs";
 static const size_t NVS_ENTRY_SIZE = 32; // size of one NVS entry in bytes (ESP-IDF internal format)
 

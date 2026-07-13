@@ -5,7 +5,15 @@ menu "Data Format"
         bool "Set buffers in SPIRAM."
         default n
         help
-            Set buffers in SPIRAM, if low DRAM. 
+            Set buffers in SPIRAM, if low DRAM.
+
+    config DATAFORMAT_JSON_INPSRAM
+        depends on SPIRAM
+        bool "Allocate json nodes in SPIRAM."
+        default n
+        help
+            Allocate nlohmann::json object/array nodes in SPIRAM instead of internal RAM.
+            Long string values (beyond small-string optimization) still use internal RAM.
 
     config DATAFORMAT_DEFAULT_DATA_SIZE
         int "Set default data size for SPIFFS."

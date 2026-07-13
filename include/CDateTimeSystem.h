@@ -10,8 +10,7 @@
 
 #include "sdkconfig.h"
 
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
+#include "CJsonType.h"
 
 #include <sys/time.h>
 

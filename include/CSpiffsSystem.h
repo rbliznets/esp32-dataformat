@@ -14,8 +14,7 @@
 #include "freertos/semphr.h"
 #include <list>
 
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
+#include "CJsonType.h"
 
 /// Callback function type for SPIFFS work event notification
 /// @param lock true - start transaction (write), false - end transaction

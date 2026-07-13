@@ -14,8 +14,7 @@
 #include "esp_ota_ops.h"
 #include <list>
 
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
+#include "CJsonType.h"
 
 /// Callback function type for OTA update process notification
 /// @param lock true - OTA update start, false - OTA update end
