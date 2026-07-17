@@ -15,10 +15,7 @@
 #include <list>
 
 #include "CJsonType.h"
-
-/// Callback function type for OTA update process notification
-/// @param lock true - OTA update start, false - OTA update end
-typedef void onOTAWork(bool lock);
+#include "CWriteEvent.h"
 
 /// Static class for OTA (Over-The-Air) firmware update operations.
 /*!
@@ -29,7 +26,7 @@ typedef void onOTAWork(bool lock);
 class COTASystem
 {
 protected:
-  static std::list<onOTAWork *> mWriteQueue; ///< Queue of callback functions for OTA process notification
+  static std::list<onWriteEvent *> mWriteQueue; ///< Queue of callback functions for OTA process notification
   static void writeEvent(bool lock);         ///< Call all callback functions from queue
 
   static esp_ota_handle_t update_handle; ///< Handle of current OTA update process
@@ -82,14 +79,14 @@ public:
   /// Add callback function for OTA process notification.
   /*!
     Registers function that will be called at OTA update start and end.
-    \param event Pointer to callback function of type onOTAWork.
+    \param event Pointer to callback function of type onWriteEvent.
   */
-  static void addWriteEvent(onOTAWork *event);
+  static void addWriteEvent(onWriteEvent *event);
 
   /// Remove callback function from OTA notifications.
   /*!
     Removes specified function from OTA update process notification queue.
     \param event Pointer to callback function for removal.
   */
-  static void removeWriteEvent(onOTAWork *event);
+  static void removeWriteEvent(onWriteEvent *event);
 };

@@ -12,7 +12,7 @@
 
 static const char *TAG = "ota"; ///< Tag for logging
 
-std::list<onOTAWork *> COTASystem::mWriteQueue; ///< Queue of callback functions for OTA process notifications
+std::list<onWriteEvent *> COTASystem::mWriteQueue; ///< Queue of callback functions for OTA process notifications
 
 /**
  * @brief Call all callback functions from queue
@@ -34,7 +34,7 @@ void COTASystem::writeEvent(bool lock)
  *
  * Registers function that will be called at OTA update start and end.
  */
-void COTASystem::addWriteEvent(onOTAWork *event)
+void COTASystem::addWriteEvent(onWriteEvent *event)
 {
     mWriteQueue.push_back(event);
 }
@@ -45,7 +45,7 @@ void COTASystem::addWriteEvent(onOTAWork *event)
  *
  * Removes specified function from OTA notification queue.
  */
-void COTASystem::removeWriteEvent(onOTAWork *event)
+void COTASystem::removeWriteEvent(onWriteEvent *event)
 {
     std::erase_if(mWriteQueue, [event](const auto &item)
                   { return item == event; });

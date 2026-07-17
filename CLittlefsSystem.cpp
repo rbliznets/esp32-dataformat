@@ -26,7 +26,7 @@ static const char *TAG = "spiffs"; ///< Tag for logging
 // Static list of LittleFS event handlers
 // Stores pointers to functions that will be called at the beginning/end of write operations
 // Used to notify external modules about file system state
-std::list<onLittlefsWork *> CLittlefsSystem::mWriteQueue;
+std::list<onWriteEvent *> CLittlefsSystem::mWriteQueue;
 
 /*!
  * @brief Call all registered event handlers
@@ -56,7 +56,7 @@ void CLittlefsSystem::writeEvent(bool lock)
  * \note Uniqueness check is performed before adding
  * \warning Must ensure handler memory is properly freed
  */
-void CLittlefsSystem::addWriteEvent(onLittlefsWork *event)
+void CLittlefsSystem::addWriteEvent(onWriteEvent *event)
 {
     // Check for handler presence in list before adding
     for (auto &e : mWriteQueue)
@@ -79,7 +79,7 @@ void CLittlefsSystem::addWriteEvent(onLittlefsWork *event)
  * \note Method guarantees removal of all handler duplicates
  * \warning After removal, handler memory must be properly freed
  */
-void CLittlefsSystem::removeWriteEvent(onLittlefsWork *event)
+void CLittlefsSystem::removeWriteEvent(onWriteEvent *event)
 {
     // Remove all occurrences of handler from list
     std::erase_if(mWriteQueue, [event](const auto &item)

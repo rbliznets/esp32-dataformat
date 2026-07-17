@@ -15,10 +15,7 @@
 #include <list>
 
 #include "CJsonType.h"
-
-/// Callback function type for LittleFS work event notification
-/// @param lock true - start transaction (write), false - end transaction
-typedef void onLittlefsWork(bool lock);
+#include "CWriteEvent.h"
 
 /// Static class for LittleFS file system operations.
 /*!
@@ -33,7 +30,7 @@ private:
 protected:
     /// Queue of LittleFS work event handlers
     /// Used to notify external modules about start/end of write operations
-    static std::list<onLittlefsWork *> mWriteQueue;
+    static std::list<onWriteEvent *> mWriteQueue;
 
     /// Internal method for generating file system work events
     /// @param lock true - start transaction (write), false - end transaction
@@ -130,7 +127,7 @@ public:
      * \note Handler is called synchronously in calling thread context
      * \warning Must properly free handler memory
      */
-    static void addWriteEvent(onLittlefsWork *event);
+    static void addWriteEvent(onWriteEvent *event);
 
     /*!
      * @brief Remove LittleFS work event handler
@@ -142,7 +139,7 @@ public:
      * \note Method guarantees removal of all handler occurrences
      * \warning After removal, handler must be properly freed
      */
-    static void removeWriteEvent(onLittlefsWork *event);
+    static void removeWriteEvent(onWriteEvent *event);
 
     /**
      * @brief Clears content of files in specified directory (at end of transaction)
