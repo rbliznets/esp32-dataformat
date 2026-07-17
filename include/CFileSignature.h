@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <vector>
+#include <string>
 
 /// @brief Проверка файлов, подписанных инструментом tools/sign_file.py (ECDSA P-256 + SHA-256).
 /*!
@@ -47,6 +48,13 @@ public:
     /// @param[out] payload проверенная полезная нагрузка (заполняется только при успехе)
     /// @return true, если файл прочитан и подпись корректна
     static bool verifyFile(const uint8_t *pubKey65, const char *path, std::vector<uint8_t> &payload);
+
+    /// @brief Прочитать подписанный файл и проверить подпись, вернув полезную нагрузку как текст.
+    /// @param pubKey65 публичный ключ, 65 байт (0x04||X||Y)
+    /// @param path путь к файлу (например "/spiffs/lic.signed")
+    /// @param[out] payload проверенная полезная нагрузка (заполняется только при успехе)
+    /// @return true, если файл прочитан и подпись корректна
+    static bool verifyFile(const uint8_t *pubKey65, const char *path, std::string &payload);
 
 private:
     /// @brief Проверить сырую ECDSA-подпись (r||s, 64 байта) над данными по SHA-256.

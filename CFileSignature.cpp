@@ -136,3 +136,13 @@ bool CFileSignature::verifyFile(const uint8_t *pubKey65, const char *path, std::
     payload.assign(data, data + dataSize);
     return true;
 }
+
+bool CFileSignature::verifyFile(const uint8_t *pubKey65, const char *path, std::string &payload)
+{
+    std::vector<uint8_t> buf;
+    if (!verifyFile(pubKey65, path, buf))
+        return false;
+
+    payload.assign(buf.begin(), buf.end());
+    return true;
+}
