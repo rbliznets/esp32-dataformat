@@ -1,4 +1,4 @@
-idf_component_register(SRCS "CLittlefsSystem.cpp" "CJsonConvertor.cpp" "COTASystem.cpp" "CDateTimeSystem.cpp" "CNvsSystem.cpp" "CSpiffsSystem.cpp" 
+idf_component_register(SRCS "CFileSignature.cpp" "CLittlefsSystem.cpp" "CJsonConvertor.cpp" "COTASystem.cpp" "CDateTimeSystem.cpp" "CNvsSystem.cpp" "CSpiffsSystem.cpp" 
                     "CBufferSystem.cpp"
                     "CJsonReadStream.cpp"
                     "CDateTimeSystem.cpp"
@@ -6,4 +6,4 @@ idf_component_register(SRCS "CLittlefsSystem.cpp" "CJsonConvertor.cpp" "COTASyst
                     "CCRC16.cpp"
                     "CJsonConvertor.cpp"
                     INCLUDE_DIRS "include"
-                    REQUIRES spiffs nvs_flash app_update nlohmann-json)
+                    REQUIRES spiffs nvs_flash app_update nlohmann-json mbedtls)
