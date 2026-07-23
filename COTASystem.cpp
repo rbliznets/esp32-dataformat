@@ -12,6 +12,11 @@
 
 static const char *TAG = "ota"; ///< Tag for logging
 
+/// Max time given to app_main() to run diagnostics and confirm firmware after OTA.
+/// If exceeded (hang/deadlock before confirmFirmware() is reached), the new image
+/// is rolled back instead of being left stuck in ESP_OTA_IMG_PENDING_VERIFY forever.
+#define OTA_CONFIRM_TIMEOUT_MS (30000)
+
 std::list<onWriteEvent *> COTASystem::mWriteQueue; ///< Queue of callback functions for OTA process notifications
 
 /**
@@ -51,24 +56,53 @@ void COTASystem::removeWriteEvent(onWriteEvent *event)
                   { return item == event; });
 }
 
-esp_ota_handle_t COTASystem::update_handle = 0; ///< Handle of current OTA update
-int COTASystem::offset = 0;                     ///< Current offset during write process
+esp_ota_handle_t COTASystem::update_handle = 0;     ///< Handle of current OTA update
+int COTASystem::offset = 0;                         ///< Current offset during write process
+esp_timer_handle_t COTASystem::mConfirmTimer = nullptr; ///< Confirmation watchdog timer
+
+/**
+ * @brief Confirmation watchdog callback
+ *
+ * Fires if app_main() didn't call confirmFirmware() within OTA_CONFIRM_TIMEOUT_MS
+ * (e.g. hung during diagnostics/init). Rolls back to the previous firmware instead
+ * of leaving the device stuck in ESP_OTA_IMG_PENDING_VERIFY indefinitely.
+ * Must not touch mConfirmTimer here - deleting a timer from its own callback is unsafe.
+ */
+void COTASystem::onConfirmTimeout(void *arg)
+{
+    ESP_LOGE(TAG, "Firmware not confirmed within %d ms! Start rollback to the previous version ...", OTA_CONFIRM_TIMEOUT_MS);
+    esp_ota_mark_app_invalid_rollback_and_reboot(); // Rollback to previous version
+}
 
 /**
  * @brief Initialize OTA system
  * @return true if firmware confirmation is required, false otherwise
  *
  * Checks current firmware partition state and determines if new image
- * confirmation is required after reboot.
+ * confirmation is required after reboot. If confirmation is required, arms a
+ * watchdog that rolls back the firmware if confirmFirmware() is never reached.
  */
 bool COTASystem::init()
 {
     const esp_partition_t *running = esp_ota_get_running_partition();
     ESP_LOGI(TAG, "Running partition: %s", running->label); ///< Output current partition info
     esp_ota_img_states_t ota_state;
-    if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK)
+    if ((esp_ota_get_state_partition(running, &ota_state) == ESP_OK) && (ota_state == ESP_OTA_IMG_PENDING_VERIFY))
     {
-        return (ota_state == ESP_OTA_IMG_PENDING_VERIFY);
+        const esp_timer_create_args_t timer_args = {
+            .callback = &onConfirmTimeout,
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "ota_confirm_wdt"};
+        if (esp_timer_create(&timer_args, &mConfirmTimer) == ESP_OK)
+        {
+            esp_timer_start_once(mConfirmTimer, (uint64_t)OTA_CONFIRM_TIMEOUT_MS * 1000);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to create confirmation watchdog timer");
+        }
+        return true;
     }
     return false;
 }
@@ -78,9 +112,17 @@ bool COTASystem::init()
  * @param ok true to confirm current firmware, false to rollback
  *
  * Confirms successful operation of new firmware or initiates rollback to previous version.
+ * Disarms the confirmation watchdog started by init(), if any.
  */
 void COTASystem::confirmFirmware(bool ok)
 {
+    if (mConfirmTimer != nullptr)
+    {
+        esp_timer_stop(mConfirmTimer); // Может быть уже не активен (истёк), это ок
+        esp_timer_delete(mConfirmTimer);
+        mConfirmTimer = nullptr;
+    }
+
     if (ok)
     {
         ESP_LOGI(TAG, "Firmware confirmed");

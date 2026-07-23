@@ -6,4 +6,4 @@ idf_component_register(SRCS "CFileSignature.cpp" "CLittlefsSystem.cpp" "CJsonCon
                     "CCRC16.cpp"
                     "CJsonConvertor.cpp"
                     INCLUDE_DIRS "include"
-                    REQUIRES spiffs nvs_flash app_update nlohmann-json mbedtls)
+                    REQUIRES spiffs nvs_flash app_update nlohmann-json mbedtls esp_timer)

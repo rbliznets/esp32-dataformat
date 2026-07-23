@@ -12,6 +12,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "esp_ota_ops.h"
+#include "esp_timer.h"
 #include <list>
 
 #include "CJsonType.h"
@@ -31,6 +32,9 @@ protected:
 
   static esp_ota_handle_t update_handle; ///< Handle of current OTA update process
   static int offset;                     ///< Current offset during data write process
+
+  static esp_timer_handle_t mConfirmTimer; ///< Watchdog: rolls back if firmware isn't confirmed in time after OTA
+  static void onConfirmTimeout(void *arg); ///< Callback: firmware wasn't confirmed in time - roll back and reboot
 
 public:
   /// Initialize OTA system.
