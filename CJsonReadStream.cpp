@@ -16,8 +16,9 @@ static const char *TAG = "json";
  * @brief Constructor for CJsonReadStream class
  * @param max_size Maximum buffer size for storing incomplete JSON objects
  * @param auto_free Automatic buffer memory deallocation flag
+ * @param resync Restart on "{number}" found inside incomplete JSON object
  */
-CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free) : mSize(max_size), mFree(auto_free)
+CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free, bool resync) : mSize(max_size), mFree(auto_free), mResync(resync)
 {
 }
 
@@ -43,6 +44,7 @@ void CJsonReadStream::free()
         mBuf = nullptr;
     }
     mCount = 0;
+    mMark = 0;
 }
 
 /**
@@ -76,10 +78,28 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
             // Inside JSON object - track bracket balance
             if (data[i] == '{')
             {
-                mCount++; // Nested objects
+                mCount++;                // Nested objects
+                mMark = mResync ? 1 : 0; // Possible start of "{number}"
+            }
+            else if ((mMark != 0) && (mMark < (sizeof(mMarkBuf) - 1)) && (data[i] >= '0') && (data[i] <= '9'))
+            {
+                mMarkBuf[mMark++] = data[i];
+            }
+            else if ((mMark > 1) && (data[i] == '}'))
+            {
+                // "{number}" is never a part of JSON object: the sender has started a new frame.
+                // The incomplete object is dropped, the number is returned as a complete string.
+                mMarkBuf[0] = '{';
+                mMarkBuf[mMark] = '}';
+                mStrings.push_back(std::string(mMarkBuf, mMark + 1));
+                mMark = 0;
+                mCount = 0;
+                mBufIndex = 0;
+                start = -1;
             }
             else if (data[i] == '}')
             {
+                mMark = 0;
                 mCount--; // Closing bracket
 
                 // If object is complete (bracket balance = 0)
@@ -131,6 +151,10 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                         mBufIndex = 0; // Reset buffer index
                     }
                 }
+            }
+            else
+            {
+                mMark = 0;
             }
         }
     }

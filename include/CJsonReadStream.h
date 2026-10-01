@@ -30,13 +30,21 @@ protected:
   uint16_t mCount = 0;             ///< Counter of unmatched opening braces { (bracket balance)
   std::list<std::string> mStrings; ///< Queue of found and complete JSON strings
 
+  bool mResync;        ///< Restart on "{number}" found inside incomplete JSON object
+  uint8_t mMark = 0;   ///< Size of possible "{number}" collected in mMarkBuf (0 - none)
+  char mMarkBuf[7];    ///< Possible "{number}": brace, up to 5 digits, brace
+
 public:
   /// Constructor for class.
   /*!
     \param[in] max_size Maximum buffer size for storing incomplete JSON objects
     \param[in] auto_free Automatic buffer memory deallocation flag (default true)
+    \param[in] resync Restart on "{number}" (up to 5 digits) found inside incomplete JSON object.
+      For streams where every JSON object follows its checksum sent as "{number}": such a string
+      is never a part of JSON object, so the sender has started a new frame and the incomplete
+      object is dropped. The number itself is returned as a complete string.
   */
-  CJsonReadStream(uint16_t max_size, bool auto_free = true);
+  CJsonReadStream(uint16_t max_size, bool auto_free = true, bool resync = false);
 
   /// Destructor for class.
   /*!
