@@ -671,10 +671,21 @@ void CLittlefsSystem::command(json &cmd, json &answer)
                     }
                 }
                 FILE *f = std::fopen("/spiffs/$", "w");
-                std::fclose(f);
-                endTransaction();
-                writeEvent(false);
-                answer["spiffs"]["trans"] = "end";
+                if (f == nullptr)
+                {
+                    // Без маркера endTransaction() отменила бы транзакцию и удалила записанные файлы '$'.
+                    // Транзакция остаётся незавершённой: её можно завершить повторно или отменить.
+                    writeEvent(false);
+                    ESP_LOGE(TAG, "Failed to create transaction marker");
+                    answer["spiffs"]["error"] = "Failed to create transaction marker";
+                }
+                else
+                {
+                    std::fclose(f);
+                    endTransaction();
+                    writeEvent(false);
+                    answer["spiffs"]["trans"] = "end";
+                }
             }
             else if (fname == "cancel")
             {
