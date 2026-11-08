@@ -45,6 +45,49 @@ void CJsonReadStream::free()
     }
     mCount = 0;
     mMark = 0;
+    mBufIndex = 0;
+    mOverflow = false;
+}
+
+/**
+ * @brief Append part of the current JSON object to the buffer
+ * @param data Pointer to data
+ * @param size Data size in bytes
+ *
+ * If the object does not fit into the buffer, it is marked as overflowed: the rest of it
+ * is skipped and the whole object is dropped when its closing brace is found.
+ * Partial copy would glue the head and the tail of the object into a valid-looking JSON string.
+ */
+void CJsonReadStream::append(const uint8_t *data, int size)
+{
+    if (mOverflow)
+        return;
+
+    if (mBuf == nullptr)
+    {
+#ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
+        mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_SPIRAM);
+#else
+        mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_DEFAULT);
+#endif
+        mBufIndex = 0;
+        if (mBuf == nullptr)
+        {
+            ESP_LOGW(TAG, "no memory for %d bytes, json dropped", mSize + 1);
+            mOverflow = true;
+            return;
+        }
+    }
+
+    if ((mBufIndex + size) > mSize)
+    {
+        ESP_LOGW(TAG, "datasize %d > bufsize %d, json dropped", (mBufIndex + size), mSize);
+        mOverflow = true;
+        return;
+    }
+
+    std::memcpy(&mBuf[mBufIndex], data, size);
+    mBufIndex += size;
 }
 
 /**
@@ -55,10 +98,11 @@ void CJsonReadStream::free()
  *
  * Function analyzes byte stream, tracks balance of opening and closing curly braces
  * to extract complete JSON objects. Incomplete objects are saved to temporary buffer.
+ * An object longer than mSize is dropped entirely.
  */
 bool CJsonReadStream::add(uint8_t *data, uint16_t size)
 {
-    int start = -1; // Index of current JSON object start in data
+    int start = -1; // Index of current JSON object start in data (-1 - started in previous data)
     int i;
 
     // Process each byte of data
@@ -71,6 +115,8 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
             {
                 mCount++;  // Increment bracket counter
                 start = i; // Remember start position
+                mBufIndex = 0;
+                mOverflow = false;
             }
         }
         else
@@ -95,6 +141,7 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                 mMark = 0;
                 mCount = 0;
                 mBufIndex = 0;
+                mOverflow = false;
                 start = -1;
             }
             else if (data[i] == '}')
@@ -105,51 +152,20 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                 // If object is complete (bracket balance = 0)
                 if (mCount == 0)
                 {
-                    // Allocate buffer if needed
-                    if (mBuf == nullptr)
-                    {
-#ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
-                        mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_SPIRAM);
-#else
-                        mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_DEFAULT);
-#endif
-                        mBufIndex = 0;
-                    }
-
-                    // Process completed JSON object
+                    // Object either completely contained in current data or started in previous data
                     if (start != -1)
-                    {
-                        // Object completely contained in current data
-                        if ((i - start + 1) < mSize)
-                        {
-                            std::memcpy(mBuf, &data[start], i - start + 1);
-                            mBuf[i - start + 1] = 0; // Add string terminator
-                            std::string s((char *)mBuf);
-                            mStrings.push_back(s); // Add to list of found objects
-                        }
-                        else
-                        {
-                            ESP_LOGW(TAG, "datasize %d > bufsize %d", (i - start + 1), mSize);
-                        }
-                        start = -1;
-                    }
+                        append(&data[start], i - start + 1);
                     else
+                        append(data, i + 1);
+
+                    if (!mOverflow)
                     {
-                        // Object started in previous data, ends in current
-                        if ((i + mBufIndex) < mSize)
-                        {
-                            std::memcpy(&mBuf[mBufIndex], data, i + 1);
-                            mBufIndex += i + 1;
-                            mBuf[mBufIndex] = 0; // Add string terminator
-                            std::string s((char *)mBuf);
-                            mStrings.push_back(s); // Add to list of found objects
-                        }
-                        else
-                        {
-                            ESP_LOGW(TAG, "datasize %d > bufsize %d", (i + mBufIndex), mSize);
-                        }
-                        mBufIndex = 0; // Reset buffer index
+                        mBuf[mBufIndex] = 0;                          // Add string terminator
+                        mStrings.push_back(std::string((char *)mBuf)); // Add to list of found objects
                     }
+                    mBufIndex = 0;
+                    mOverflow = false;
+                    start = -1;
                 }
             }
             else
@@ -159,46 +175,13 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
         }
     }
 
-    // Process incomplete JSON objects
+    // Save incomplete JSON object to temporary buffer
     if (mCount != 0)
     {
         if (start != -1)
-        {
-            // Object start found in current data
-            if (mBuf == nullptr)
-            {
-#ifdef CONFIG_DATAFORMAT_BUFFERS_INPSRAM
-                mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_SPIRAM);
-#else
-                mBuf = (uint8_t *)heap_caps_malloc(mSize + 1, MALLOC_CAP_DEFAULT);
-#endif
-                mBufIndex = 0;
-            }
-
-            // Save incomplete data to temporary buffer
-            if ((size - start) < mSize)
-            {
-                std::memcpy(mBuf, &data[start], (size - start));
-                mBufIndex = (size - start);
-            }
-            else
-            {
-                ESP_LOGW(TAG, "datasize %d > bufsize %d", (size - start), mSize);
-            }
-        }
+            append(&data[start], size - start); // Object start found in current data
         else
-        {
-            // Continuation of previously started object
-            if ((size + mBufIndex) < mSize)
-            {
-                std::memcpy(&mBuf[mBufIndex], data, size);
-                mBufIndex += size;
-            }
-            else
-            {
-                ESP_LOGW(TAG, "datasize %d > bufsize %d", (size + mBufIndex), mSize);
-            }
-        }
+            append(data, size); // Continuation of previously started object
     }
     else
     {

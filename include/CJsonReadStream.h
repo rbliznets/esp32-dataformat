@@ -23,9 +23,10 @@ class CJsonReadStream
 {
 protected:
   uint8_t *mBuf = nullptr; ///< Buffer for storing incomplete JSON objects between calls
-  uint16_t mBufIndex;      ///< Current index (size) of data in buffer
-  uint16_t mSize;          ///< Maximum buffer size for incomplete objects
+  uint16_t mBufIndex = 0;  ///< Current index (size) of data in buffer
+  uint16_t mSize;          ///< Maximum JSON object length (buffer holds mSize + 1 bytes with terminator)
   bool mFree;              ///< Automatic buffer memory deallocation flag
+  bool mOverflow = false;  ///< Current JSON object does not fit into the buffer and will be dropped
 
   uint16_t mCount = 0;             ///< Counter of unmatched opening braces { (bracket balance)
   std::list<std::string> mStrings; ///< Queue of found and complete JSON strings
@@ -34,10 +35,19 @@ protected:
   uint8_t mMark = 0;   ///< Size of possible "{number}" collected in mMarkBuf (0 - none)
   char mMarkBuf[7];    ///< Possible "{number}": brace, up to 5 digits, brace
 
+  /// Append part of the current JSON object to the buffer.
+  /*!
+    If the object does not fit into the buffer, it is marked as overflowed: the rest of it
+    is skipped and the whole object is dropped when its closing brace is found.
+    \param[in] data Pointer to data
+    \param[in] size Data size in bytes
+  */
+  void append(const uint8_t *data, int size);
+
 public:
   /// Constructor for class.
   /*!
-    \param[in] max_size Maximum buffer size for storing incomplete JSON objects
+    \param[in] max_size Maximum JSON object length. Longer objects are dropped entirely.
     \param[in] auto_free Automatic buffer memory deallocation flag (default true)
     \param[in] resync Restart on "{number}" (up to 5 digits) found inside incomplete JSON object.
       For streams where every JSON object follows its checksum sent as "{number}": such a string
@@ -62,6 +72,7 @@ public:
   /*!
     Analyzes byte stream, tracks balance of curly braces and extracts complete JSON objects.
     Incomplete objects are saved to temporary buffer for subsequent processing.
+    An object longer than max_size is dropped entirely (never returned truncated).
 
     \param[in] data Pointer to byte array for analysis
     \param[in] size Data size in bytes
