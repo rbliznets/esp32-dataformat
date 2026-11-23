@@ -34,6 +34,10 @@ protected:
   bool mResync;        ///< Restart on "{number}" found inside incomplete JSON object
   uint8_t mMark = 0;   ///< Size of possible "{number}" collected in mMarkBuf (0 - none)
   char mMarkBuf[7];    ///< Possible "{number}": brace, up to 5 digits, brace
+#ifdef CONFIG_DATAFORMAT_JSON_STRING_AWARE
+  bool mInString = false; ///< Quoted JSON string continues across chunks
+  bool mEscape = false;   ///< Previous string byte was an unescaped backslash
+#endif
 
   /// Append part of the current JSON object to the buffer.
   /*!

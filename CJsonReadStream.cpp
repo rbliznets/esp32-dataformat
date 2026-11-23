@@ -47,6 +47,10 @@ void CJsonReadStream::free()
     mMark = 0;
     mBufIndex = 0;
     mOverflow = false;
+#ifdef CONFIG_DATAFORMAT_JSON_STRING_AWARE
+    mInString = false;
+    mEscape = false;
+#endif
 }
 
 /**
@@ -117,10 +121,33 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
                 start = i; // Remember start position
                 mBufIndex = 0;
                 mOverflow = false;
+#ifdef CONFIG_DATAFORMAT_JSON_STRING_AWARE
+                mInString = false;
+                mEscape = false;
+#endif
             }
         }
         else
         {
+#ifdef CONFIG_DATAFORMAT_JSON_STRING_AWARE
+            // String contents cannot change brace balance or start a CRC resync marker.
+            if (mInString)
+            {
+                if (mEscape)
+                    mEscape = false;
+                else if (data[i] == '\\')
+                    mEscape = true;
+                else if (data[i] == '"')
+                    mInString = false;
+                continue;
+            }
+            if (data[i] == '"')
+            {
+                mInString = true;
+                mMark = 0;
+                continue;
+            }
+#endif
             // Inside JSON object - track bracket balance
             if (data[i] == '{')
             {

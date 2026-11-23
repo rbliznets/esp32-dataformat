@@ -15,6 +15,14 @@ menu "Data Format"
             Allocate nlohmann::json object/array nodes in SPIRAM instead of internal RAM.
             Long string values (beyond small-string optimization) still use internal RAM.
 
+    config DATAFORMAT_JSON_STRING_AWARE
+        bool "Respect quoted strings in JSON stream framing"
+        default n
+        help
+            Ignore braces and CRC resync markers inside JSON strings, including
+            escaped quotes and backslashes across fragmented input chunks.
+            Disabled preserves the legacy brace-counting behavior.
+
     config DATAFORMAT_DEFAULT_DATA_SIZE
         int "Set default data size for SPIFFS."
         default 256
