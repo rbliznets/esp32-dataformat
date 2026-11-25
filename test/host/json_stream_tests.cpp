@@ -44,18 +44,18 @@ void expect_frames(CJsonReadStream &stream, const Frames &expected, const std::s
 // Every two-part split includes boundaries immediately before/after each quote
 // and backslash. Fixed chunk sizes also cross several state changes per add().
 void partitions(const std::string &bytes, const Frames &expected, bool resync,
-                bool auto_free, uint16_t max_size = 2048)
+                bool auto_free, uint16_t max_size = 2048, uint8_t abort_byte = 0)
 {
     for (std::size_t split = 0; split <= bytes.size(); ++split)
     {
-        CJsonReadStream stream(max_size, auto_free, resync);
+        CJsonReadStream stream(max_size, auto_free, resync, abort_byte);
         feed(stream, bytes.substr(0, split));
         check(!feed(stream, bytes.substr(split)), "two-part input should finish a frame");
         expect_frames(stream, expected, "split " + std::to_string(split));
     }
     for (std::size_t chunk = 1; chunk <= 9; ++chunk)
     {
-        CJsonReadStream stream(max_size, auto_free, resync);
+        CJsonReadStream stream(max_size, auto_free, resync, abort_byte);
         bool pending = false;
         for (std::size_t offset = 0; offset < bytes.size(); offset += chunk)
             pending = feed(stream, bytes.substr(offset, chunk));
@@ -102,6 +102,17 @@ void common_resync_outside_strings()
     const std::string legacy_nested_marker = R"({"object":{123}})";
     check(!feed(stream, legacy_nested_marker), "resync-disabled nesting completes");
     expect_frames(stream, {legacy_nested_marker}, "resync disabled");
+}
+
+void common_abort_resets_partial_frame_in_order()
+{
+    const std::string can(1, '\x18');
+    const std::string first = R"({"seq":1})";
+    const std::string incomplete = R"({"lost":"trailing\)";
+    const std::string next = R"({"seq":2})";
+    for (bool auto_free : {false, true})
+        partitions(first + "{12}" + incomplete + can + "}}}}}}}}{34}" + next,
+                   {first, "{12}", can, "{34}", next}, true, auto_free, 2048, '\x18');
 }
 
 void common_overflow_limits_and_recovery()
@@ -278,6 +289,7 @@ int main()
         {"nested arrays/objects and multiple frames", common_nested_multiple_frames},
         {"fragment pending and empty chunks", common_fragment_pending_and_empty_input},
         {"resync outside strings and marker limits", common_resync_outside_strings},
+        {"out-of-band abort drops partial frame in order", common_abort_resets_partial_frame_in_order},
         {"overflow, exact capacity, and recovery", common_overflow_limits_and_recovery},
         {"free, queued frames, and auto_free", common_free_and_auto_free},
         {"allocation failure recovery", common_allocation_failure},

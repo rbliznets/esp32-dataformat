@@ -18,6 +18,9 @@ still consumed and dropped; `free()` resets partial frame/string state.
 This is a framing option, not full JSON validation; extraction remains object-based
 (top-level arrays are not frames). An unterminated quoted string remains open until
 its closing quote or an explicit `free()`; CRC-like text inside it does not resync.
+A caller may configure an out-of-band abort byte (e.g. CAN `0x18` on RS485):
+it drops partial input, including an open string, and is returned as a one-byte
+notification so the caller can invalidate the pending checksum in stream order.
 
 ### Isolated Windows host regressions
 

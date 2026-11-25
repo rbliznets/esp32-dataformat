@@ -9,6 +9,7 @@
 #pragma once
 #include "sdkconfig.h"
 
+#include <cstdint>
 #include <string>
 #include <cstring>
 #include <list>
@@ -32,6 +33,7 @@ protected:
   std::list<std::string> mStrings; ///< Queue of found and complete JSON strings
 
   bool mResync;        ///< Restart on "{number}" found inside incomplete JSON object
+  uint8_t mAbortByte;  ///< Optional out-of-band byte that aborts a partial frame
   uint8_t mMark = 0;   ///< Size of possible "{number}" collected in mMarkBuf (0 - none)
   char mMarkBuf[7];    ///< Possible "{number}": brace, up to 5 digits, brace
 #ifdef CONFIG_DATAFORMAT_JSON_STRING_AWARE
@@ -57,8 +59,10 @@ public:
       For streams where every JSON object follows its checksum sent as "{number}": such a string
       is never a part of JSON object, so the sender has started a new frame and the incomplete
       object is dropped. The number itself is returned as a complete string.
+    \param[in] abort_byte Optional out-of-band byte (0 disables). It drops incomplete data
+      and is returned by get() as a one-byte notification in stream order.
   */
-  CJsonReadStream(uint16_t max_size, bool auto_free = true, bool resync = false);
+  CJsonReadStream(uint16_t max_size, bool auto_free = true, bool resync = false, uint8_t abort_byte = 0);
 
   /// Destructor for class.
   /*!
@@ -84,9 +88,9 @@ public:
   */
   bool add(uint8_t *data, uint16_t size);
 
-  /// Get next found JSON string.
+  /// Get next complete frame or abort notification.
   /*!
-    Extracts first found JSON string from queue and removes it from list.
+    Removes the first queued JSON object, checksum marker or one-byte abort notification.
 
     \param[out] str Reference to string where found JSON string will be written
     \return true if string successfully obtained, false if queue is empty

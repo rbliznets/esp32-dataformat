@@ -17,8 +17,10 @@ static const char *TAG = "json";
  * @param max_size Maximum buffer size for storing incomplete JSON objects
  * @param auto_free Automatic buffer memory deallocation flag
  * @param resync Restart on "{number}" found inside incomplete JSON object
+ * @param abort_byte Optional out-of-band byte (0 disables)
  */
-CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free, bool resync) : mSize(max_size), mFree(auto_free), mResync(resync)
+CJsonReadStream::CJsonReadStream(uint16_t max_size, bool auto_free, bool resync, uint8_t abort_byte)
+    : mSize(max_size), mFree(auto_free), mResync(resync), mAbortByte(abort_byte)
 {
 }
 
@@ -112,6 +114,15 @@ bool CJsonReadStream::add(uint8_t *data, uint16_t size)
     // Process each byte of data
     for (i = 0; i < size; i++)
     {
+        if (mAbortByte != 0 && data[i] == mAbortByte)
+        {
+            // An unescaped control byte cannot be part of a valid JSON string.
+            // Keep already queued frames, then notify the caller to drop its pending CRC.
+            free();
+            start = -1;
+            mStrings.emplace_back(1, static_cast<char>(mAbortByte));
+            continue;
+        }
         if (mCount == 0)
         {
             // Looking for start of new JSON object
